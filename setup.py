@@ -1,16 +1,8 @@
 #!/usr/bin/env python
 
-from setuptools import setup
-import sys
+from setuptools import setup, find_packages
 
 import joblibspark
-
-# For some commands, use setuptools
-if len(set(('develop', 'sdist', 'release', 'bdist', 'bdist_egg', 'bdist_dumb',
-            'bdist_rpm', 'bdist_wheel', 'bdist_wininst', 'install_egg_info',
-            'egg_info', 'easy_install', 'upload',
-            )).intersection(sys.argv)) > 0:
-    import setuptools
 
 extra_setuptools_args = {}
 
@@ -42,5 +34,5 @@ if __name__ == '__main__':
               'Topic :: Software Development :: Libraries',
           ],
           platforms='any',
-          packages=setuptools.find_packages(),
+          packages=find_packages(),
           **extra_setuptools_args)
