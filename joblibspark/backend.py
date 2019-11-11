@@ -27,19 +27,6 @@ from sklearn.externals.joblib._parallel_backends import SafeFunction
 from pyspark.sql import SparkSession
 
 
-def register_spark():
-    """
-    Register spark backend into joblib.
-    """
-    try:
-        from ._spark import SparkDistributedBackend
-        register_parallel_backend('spark', SparkDistributedBackend)
-    except ImportError:
-        msg = ("To use the spark.distributed backend you must install both "
-               "the `pyspark` and `cloudpickle` packages.\n\n")
-        raise ImportError(msg)
-
-
 class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
 
     def __init__(self, **backend_args):

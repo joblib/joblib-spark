@@ -15,8 +15,24 @@
 # limitations under the License.
 #
 
-__version__ = '0.1.0'
+"""
+Joblib spark backend is a extension for joblib, which make joblib running on spark parallelly.
+"""
+__version__ = '0.1.0.dev'
 
-from .backend import register_spark
+
+def register_spark():
+    """
+    Register spark backend into joblib.
+    """
+    try:
+        from sklearn.externals.joblib.parallel import register_parallel_backend
+        from .backend import SparkDistributedBackend
+        register_parallel_backend('spark', SparkDistributedBackend)
+    except ImportError:
+        msg = ("To use the spark.distributed backend you must install both "
+               "the `pyspark` and `cloudpickle` packages.\n\n")
+        raise ImportError(msg)
+
 
 __all__ = ['register_spark']
