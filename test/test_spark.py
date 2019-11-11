@@ -14,10 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from sklearn.externals.joblib.parallel \
-    import Parallel, delayed, parallel_backend
 from time import sleep
 import pytest
+from distutils.version import LooseVersion
+
+if LooseVersion(sklearn.__version__) < LooseVersion('0.21'):
+    from sklearn.externals.joblib.parallel \
+        import Parallel, delayed, parallel_backend
+else:
+    from joblib.parallel import Parallel, delayed, parallel_backend
 
 
 def inc(x):

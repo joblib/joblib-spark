@@ -20,10 +20,13 @@ import warnings
 from multiprocessing.pool import ThreadPool
 import uuid
 
-from sklearn.externals.joblib.parallel \
-    import AutoBatchingMixin, ParallelBackendBase, SequentialBackend
-
-from sklearn.externals.joblib._parallel_backends import SafeFunction
+if LooseVersion(sklearn.__version__) < LooseVersion('0.21'):
+    from sklearn.externals.joblib.parallel \
+        import AutoBatchingMixin, ParallelBackendBase, SequentialBackend
+    from sklearn.externals.joblib._parallel_backends import SafeFunction
+else:
+    from joblib.parallel import AutoBatchingMixin, ParallelBackendBase, SequentialBackend
+    from joblib._parallel_backends import SafeFunction
 
 from pyspark.sql import SparkSession
 
