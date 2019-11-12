@@ -18,6 +18,8 @@
 import warnings
 from multiprocessing.pool import ThreadPool
 import uuid
+from distutils.version import LooseVersion
+import sklearn
 
 if LooseVersion(sklearn.__version__) < LooseVersion('0.21'):
     from sklearn.externals.joblib.parallel \
