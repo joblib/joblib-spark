@@ -24,6 +24,10 @@ if LooseVersion(sklearn.__version__) < LooseVersion('0.21'):
 else:
     from joblib.parallel import Parallel, delayed, parallel_backend
 
+from joblibspark import register_spark
+
+register_spark()
+
 
 def inc(x):
     return x + 1
@@ -36,7 +40,7 @@ def slow_raise_value_error(condition, duration=0.05):
 
 
 def test_simple():
-    with parallel_backend('dask') as (ba, _):
+    with parallel_backend('spark') as (ba, _):
         seq = Parallel(n_jobs=5)(delayed(inc)(i) for i in range(10))
         assert seq == [inc(i) for i in range(10)]
 
