@@ -20,8 +20,11 @@ from multiprocessing.pool import ThreadPool
 import uuid
 from distutils.version import LooseVersion
 import sklearn
+import os
 
-if LooseVersion(sklearn.__version__) < LooseVersion('0.21'):
+if LooseVersion(sklearn.__version__) < LooseVersion('0.20'):
+    raise RuntimeError("joblib spark backend only support sklearn version >= 0.20")
+elif LooseVersion(sklearn.__version__) < LooseVersion('0.21'):
     from sklearn.externals.joblib.parallel \
         import AutoBatchingMixin, ParallelBackendBase, SequentialBackend
     from sklearn.externals.joblib._parallel_backends import SafeFunction
@@ -45,6 +48,23 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             .getOrCreate()
         self._job_group = "joblib-spark-job-group-" + str(uuid.uuid4())
 
+    def _check_pyspark_pin_thread_mode(self):
+        if LooseVersion(self._spark.sparkContext.version) < LooseVersion('3.0.0'):
+            return False
+        elif os.environ.get("PYSPARK_PIN_THREAD", "false").lower() == "true":
+            return True
+        else:
+            return False
+
+    def _cancel_all_jobs(self):
+        if self._check_pyspark_pin_thread_mode():
+            self._spark.sparkContext.cancelJobGroup(self._job_group)
+        else:
+            # Note: There's bug existing in `sparkContext.cancelJobGroup`.
+            # See https://github.com/apache/spark/pull/24898
+            warnings.warn("Because pyspark py4j is not in pinned thread mode, "
+                          "we could not terminate running spark jobs correctly.")
+
     def effective_n_jobs(self, n_jobs):
         # maxNumConcurrentTasks() is a package private API
         max_num_concurrent_tasks = self._spark.sparkContext._jsc.sc().maxNumConcurrentTasks()
@@ -54,17 +74,13 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         return n_jobs
 
     def abort_everything(self, ensure_ready=True):
-        # Note: There's bug existing in `sparkContext.cancelJobGroup`.
-        # See https://github.com/apache/spark/pull/24898
-        self._spark.sparkContext.cancelJobGroup(self._job_group)
+        self._cancel_all_jobs(self)
         if ensure_ready:
             self.configure(n_jobs=self.parallel.n_jobs, parallel=self.parallel,
                            **self.parallel._backend_args)
 
     def terminate(self):
-        # Note: There's bug existing in `sparkContext.cancelJobGroup`.
-        # See https://github.com/apache/spark/pull/24898
-        self._spark.sparkContext.cancelJobGroup(self._job_group)
+        self._cancel_all_jobs(self)
 
     def configure(self, n_jobs=1, parallel=None, **backend_args):
         n_jobs = self.effective_n_jobs(n_jobs)
