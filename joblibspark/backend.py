@@ -74,13 +74,13 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         return n_jobs
 
     def abort_everything(self, ensure_ready=True):
-        self._cancel_all_jobs(self)
+        self._cancel_all_jobs()
         if ensure_ready:
             self.configure(n_jobs=self.parallel.n_jobs, parallel=self.parallel,
                            **self.parallel._backend_args)
 
     def terminate(self):
-        self._cancel_all_jobs(self)
+        self._cancel_all_jobs()
 
     def configure(self, n_jobs=1, parallel=None, **backend_args):
         n_jobs = self.effective_n_jobs(n_jobs)
