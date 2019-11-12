@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 
-import cloudpickle
 import warnings
 from multiprocessing.pool import ThreadPool
 import uuid
@@ -29,6 +28,7 @@ else:
     from joblib._parallel_backends import SafeFunction
 
 from pyspark.sql import SparkSession
+from pyspark import cloudpickle
 
 
 class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
