@@ -26,14 +26,19 @@ if LooseVersion(sklearn.__version__) < LooseVersion('0.20'):
     raise RuntimeError("joblib spark backend only support sklearn version >= 0.20")
 elif LooseVersion(sklearn.__version__) < LooseVersion('0.21'):
     from sklearn.externals.joblib.parallel \
-        import AutoBatchingMixin, ParallelBackendBase, SequentialBackend
+        import AutoBatchingMixin, ParallelBackendBase, register_parallel_backend, SequentialBackend
     from sklearn.externals.joblib._parallel_backends import SafeFunction
 else:
-    from joblib.parallel import AutoBatchingMixin, ParallelBackendBase, SequentialBackend
+    from joblib.parallel \
+        import AutoBatchingMixin, ParallelBackendBase, register_parallel_backend, SequentialBackend
     from joblib._parallel_backends import SafeFunction
 
 from pyspark.sql import SparkSession
 from pyspark import cloudpickle
+
+
+def register():
+    register_parallel_backend('spark', SparkDistributedBackend)
 
 
 class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):

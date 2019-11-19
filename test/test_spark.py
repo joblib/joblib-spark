@@ -17,6 +17,7 @@
 from time import sleep
 import pytest
 from distutils.version import LooseVersion
+import sklearn
 
 if LooseVersion(sklearn.__version__) < LooseVersion('0.21'):
     from sklearn.externals.joblib.parallel \
@@ -25,6 +26,11 @@ else:
     from joblib.parallel import Parallel, delayed, parallel_backend
 
 from joblibspark import register_spark
+
+from sklearn.utils import parallel_backend
+from sklearn.model_selection import cross_val_score
+from sklearn import datasets
+from sklearn import svm
 
 register_spark()
 
@@ -47,3 +53,15 @@ def test_simple():
     with pytest.raises(BaseException):
         Parallel(n_jobs=5)(delayed(slow_raise_value_error)(i == 3)
                            for i in range(10))
+
+
+def test_sklearn_cv():
+    iris = datasets.load_iris()
+    clf = svm.SVC(kernel='linear', C=1)
+    with parallel_backend('spark', n_jobs=3):
+        scores = cross_val_score(clf, iris.data, iris.target, cv=5)
+
+    expected = [0.97, 1.0, 0.97, 0.97, 1.0]
+
+    for i in range(5):
+        assert(pytest.approx(scores[i], 0.01) == expected[i])

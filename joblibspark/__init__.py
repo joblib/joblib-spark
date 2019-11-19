@@ -26,9 +26,8 @@ def register_spark():
     Register spark backend into joblib.
     """
     try:
-        from sklearn.externals.joblib.parallel import register_parallel_backend
-        from .backend import SparkDistributedBackend
-        register_parallel_backend('spark', SparkDistributedBackend)
+        from .backend import register
+        register()
     except ImportError:
         msg = ("To use the spark.distributed backend you must install both "
                "the `pyspark` and `cloudpickle` packages.\n\n")
