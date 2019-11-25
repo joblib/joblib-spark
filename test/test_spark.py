@@ -64,3 +64,10 @@ def test_sklearn_cv():
 
     for i in range(5):
         assert(pytest.approx(scores[i], 0.01) == expected[i])
+
+    # test with default n_jobs=-1
+    with parallel_backend('spark'):
+        scores = cross_val_score(clf, iris.data, iris.target, cv=5)
+
+    for i in range(5):
+        assert(pytest.approx(scores[i], 0.01) == expected[i])

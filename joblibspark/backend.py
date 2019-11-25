@@ -42,6 +42,14 @@ def register():
 
 
 class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
+    """A ParallelBackend which will execute all batches on spark.
+
+    This backend will launch one spark job for task batch. Multiple spark job will run parallelly.
+    The maximum parallelism won't exceed `sparkContext._jsc.sc().maxNumConcurrentTasks()`
+
+    Each task batch will be run inside one spark task on worker node, and will be executed
+    by `SequentialBackend`
+    """
 
     def __init__(self, **backend_args):
         super(SparkDistributedBackend, self).__init__(**backend_args)
@@ -73,6 +81,9 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
     def effective_n_jobs(self, n_jobs):
         # maxNumConcurrentTasks() is a package private API
         max_num_concurrent_tasks = self._spark.sparkContext._jsc.sc().maxNumConcurrentTasks()
+        if n_jobs == -1:
+            # n_jobs=-1 means requesting all available workers
+            n_jobs = max_num_concurrent_tasks
         if n_jobs > max_num_concurrent_tasks:
             n_jobs = max_num_concurrent_tasks
             warnings.warn("limit n_jobs to be maxNumConcurrentTasks in spark: " + str(n_jobs))
