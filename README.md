@@ -4,7 +4,12 @@ This is joblib spark backend.
 
 ## A Note About Dependency
 
-If you installed sklearn version >= 0.21.x, then you need install a separate `joblib` libray, otherwise don't need it.
+You need joblib >= 0.14
+If you want slearn to use spark backend, you need upgrade sklearn version to >= 0.21
+
+You need install pyspark first. Joblib-spark support spark version >= 2.4.4
+
+
 
 ## Installation
 
@@ -12,8 +17,8 @@ If you installed sklearn version >= 0.21.x, then you need install a separate `jo
 
 1. Install python library:
 ```bash
-pip install cloudpickle scikit-learn
-pip install joblib # This is only required when sklearn version >= 0.21.x
+pip install scikit-learn==0.21.3
+pip install joblib==0.14.0
 ```
 
 2. Install pyspark

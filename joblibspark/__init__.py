@@ -29,8 +29,8 @@ def register_spark():
         from .backend import register
         register()
     except ImportError:
-        msg = ("To use the spark.distributed backend you must install both "
-               "the `pyspark` and `cloudpickle` packages.\n\n")
+        msg = ("To use the spark.distributed backend you must install "
+               "the pyspark and packages.\n\n")
         raise ImportError(msg)
 
 

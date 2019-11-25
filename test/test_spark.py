@@ -20,8 +20,7 @@ from distutils.version import LooseVersion
 import sklearn
 
 if LooseVersion(sklearn.__version__) < LooseVersion('0.21'):
-    from sklearn.externals.joblib.parallel \
-        import Parallel, delayed, parallel_backend
+    raise RuntimeError("Test requires sklearn version >=0.21")
 else:
     from joblib.parallel import Parallel, delayed, parallel_backend
 

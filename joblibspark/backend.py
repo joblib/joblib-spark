@@ -19,25 +19,25 @@ import warnings
 from multiprocessing.pool import ThreadPool
 import uuid
 from distutils.version import LooseVersion
-import sklearn
 import os
 
-if LooseVersion(sklearn.__version__) < LooseVersion('0.20'):
-    raise RuntimeError("joblib spark backend only support sklearn version >= 0.20")
-elif LooseVersion(sklearn.__version__) < LooseVersion('0.21'):
-    from sklearn.externals.joblib.parallel \
-        import AutoBatchingMixin, ParallelBackendBase, register_parallel_backend, SequentialBackend
-    from sklearn.externals.joblib._parallel_backends import SafeFunction
-else:
-    from joblib.parallel \
-        import AutoBatchingMixin, ParallelBackendBase, register_parallel_backend, SequentialBackend
-    from joblib._parallel_backends import SafeFunction
+from joblib.parallel \
+    import AutoBatchingMixin, ParallelBackendBase, register_parallel_backend, SequentialBackend
+from joblib._parallel_backends import SafeFunction
 
 from pyspark.sql import SparkSession
 from pyspark import cloudpickle
 
 
 def register():
+    try:
+        import sklearn
+        if LooseVersion(sklearn.__version__) < LooseVersion('0.21'):
+            warnings.warn("Your sklearn version is < 0.21, but joblib-spark only support "
+                          "sklearn >=0.21 . You can upgrade sklearn to version >= 0.21 to "
+                          "make sklearn use spark backend.")
+    except ImportError:
+        pass
     register_parallel_backend('spark', SparkDistributedBackend)
 
 
