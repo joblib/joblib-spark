@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
+"""
+The joblib spark backend implementation.
+"""
 import warnings
 from multiprocessing.pool import ThreadPool
 import uuid
@@ -30,8 +32,11 @@ from pyspark import cloudpickle
 
 
 def register():
+    """
+    Register joblib spark backend.
+    """
     try:
-        import sklearn
+        import sklearn  # pylint: disable=C0415
         if LooseVersion(sklearn.__version__) < LooseVersion('0.21'):
             warnings.warn("Your sklearn version is < 0.21, but joblib-spark only support "
                           "sklearn >=0.21 . You can upgrade sklearn to version >= 0.21 to "
@@ -64,10 +69,9 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
     def _check_pyspark_pin_thread_mode(self):
         if LooseVersion(self._spark.sparkContext.version) < LooseVersion('3.0.0'):
             return False
-        elif os.environ.get("PYSPARK_PIN_THREAD", "false").lower() == "true":
+        if os.environ.get("PYSPARK_PIN_THREAD", "false").lower() == "true":
             return True
-        else:
-            return False
+        return False
 
     def _cancel_all_jobs(self):
         if self._check_pyspark_pin_thread_mode():
@@ -80,6 +84,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
 
     def effective_n_jobs(self, n_jobs):
         # maxNumConcurrentTasks() is a package private API
+        # pylint: disable=W0212
         max_num_concurrent_tasks = self._spark.sparkContext._jsc.sc().maxNumConcurrentTasks()
         if n_jobs == -1:
             # n_jobs=-1 means requesting all available workers
@@ -93,12 +98,12 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         self._cancel_all_jobs()
         if ensure_ready:
             self.configure(n_jobs=self.parallel.n_jobs, parallel=self.parallel,
-                           **self.parallel._backend_args)
+                           **self.parallel._backend_args)  # pylint: disable=W0212
 
     def terminate(self):
         self._cancel_all_jobs()
 
-    def configure(self, n_jobs=1, parallel=None, **backend_args):
+    def configure(self, n_jobs=1, parallel=None, prefer=None, require=None, **backend_args):
         n_jobs = self.effective_n_jobs(n_jobs)
         self._n_jobs = n_jobs
         return n_jobs
@@ -116,7 +121,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         # Note the `func` args is a batch here. (BatchedCalls type)
         # See joblib.parallel.Parallel._dispatch
         def run_on_worker_and_fetch_result():
-            # TODO: handle possible spark exception here.
+            # TODO: handle possible spark exception here. # pylint: disable=fixme
             self._spark.sparkContext.setJobGroup(self._job_group, "joblib spark jobs")
             ser_res = self._spark.sparkContext.parallelize([0], 1) \
                 .map(lambda _: cloudpickle.dumps(func())) \

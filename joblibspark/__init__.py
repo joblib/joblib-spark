@@ -26,7 +26,7 @@ def register_spark():
     Register spark backend into joblib.
     """
     try:
-        from .backend import register
+        from .backend import register # pylint: disable=C0415
         register()
     except ImportError:
         msg = ("To use the spark.distributed backend you must install "
