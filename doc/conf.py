@@ -46,7 +46,7 @@ intersphinx_mapping = {
 
 # sphinx-gallery configuration
 sphinx_gallery_conf = {
-    'default_thumb_file': '_static/joblib_logo_examples.png',
+    'default_thumb_file': '_static/joblibspark_logo_examples.png',
     'doc_module': 'joblib',
     'filename_pattern': '',
     'ignore_pattern': 'utils.py',
@@ -229,7 +229,7 @@ latex_documents = [
 html_theme = 'alabaster'
 
 html_theme_options = {
-    'logo': 'joblib_logo.svg',
+    'logo': 'joblibspark_logo.svg',
     'github_repo': 'joblib/joblib',
     'github_button': 'true',
     'link': '#aa560c',

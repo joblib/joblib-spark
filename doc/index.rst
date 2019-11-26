@@ -41,9 +41,5 @@ User manual
 
     why.rst
     installing.rst
-    memory.rst
-    parallel.rst
-    persistence.rst
-    auto_examples/index
+    guide.rst
     developing.rst
-
