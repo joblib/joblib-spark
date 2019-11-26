@@ -1,33 +1,24 @@
-# Joblib spark backend
+# Joblib Apache Spark Backend
 
-This is joblib spark backend.
-
-## A Note About Dependency
-
-You need joblib >= 0.14
-If you want slearn to use spark backend, you need upgrade sklearn version to >= 0.21
-
-You need install pyspark first. Joblib-spark support spark version >= 2.4.4
-
-
+This library provides Apache Spark backend for joblib to distribute tasks on a Spark cluster.
 
 ## Installation
 
-### prerequisite
+`joblibspark` requires Python 3.6+, `joblib>=0.14` and `pyspark>=2.4.4` to run.
+To install `joblibspark`, run:
 
-1. Install python library:
 ```bash
-pip install scikit-learn==0.21.3
-pip install joblib==0.14.0
+pip install joblibspark
 ```
 
-2. Install pyspark
+The installation does not install PySpark because for most users, PySpark is already installed.
+If you do not have PySpark installed, you can install `pyspark` together with `joblibspark`:
 
-### Install joblib-spark
 ```bash
-cd path/to/joblib-spark
-python setup.py install
+pip install pyspark>=2.4.4 joblibspark
 ```
+
+If you want to use `joblibspark` with `scikit-learn`, please install `scikit-learn>=0.21`.
 
 ## Examples
 
