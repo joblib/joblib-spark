@@ -28,6 +28,5 @@ install:
   - pip install joblib==0.14.0 scikit-learn==${SKLEARN_VERSION} nose==1.3.3 pytest pylint;
 
 script:
-  - python -m pylint joblibspark
   - PYSPARK_PYTHON=python SPARK_HOME=$HOME/.cache/spark-versions/spark-${SPARK_VERSION}-bin-hadoop2.7 ./run-tests.sh
 

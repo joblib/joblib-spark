@@ -36,7 +36,7 @@ def register():
     Register joblib spark backend.
     """
     try:
-        import sklearn
+        import sklearn  # pylint: disable=C0415
         if LooseVersion(sklearn.__version__) < LooseVersion('0.21'):
             warnings.warn("Your sklearn version is < 0.21, but joblib-spark only support "
                           "sklearn >=0.21 . You can upgrade sklearn to version >= 0.21 to "
