@@ -83,9 +83,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                           "we could not terminate running spark jobs correctly.")
 
     def effective_n_jobs(self, n_jobs):
-        # maxNumConcurrentTasks() is a package private API
-        # pylint: disable=W0212
-        max_num_concurrent_tasks = self._spark.sparkContext._jsc.sc().maxNumConcurrentTasks()
+        max_num_concurrent_tasks = self._get_max_num_concurrent_tasks()
         if n_jobs is None:
             n_jobs = 1
         elif n_jobs == -1:
@@ -95,6 +93,11 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             n_jobs = max_num_concurrent_tasks
             warnings.warn("limit n_jobs to be maxNumConcurrentTasks in spark: " + str(n_jobs))
         return n_jobs
+
+    def _get_max_num_concurrent_tasks(self):
+        # maxNumConcurrentTasks() is a package private API
+        # pylint: disable=W0212
+        return self._spark.sparkContext._jsc.sc().maxNumConcurrentTasks()
 
     def abort_everything(self, ensure_ready=True):
         self._cancel_all_jobs()
