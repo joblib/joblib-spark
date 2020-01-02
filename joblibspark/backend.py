@@ -86,7 +86,9 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         # maxNumConcurrentTasks() is a package private API
         # pylint: disable=W0212
         max_num_concurrent_tasks = self._spark.sparkContext._jsc.sc().maxNumConcurrentTasks()
-        if n_jobs == -1:
+        if n_jobs is None:
+            n_jobs = 1
+        elif n_jobs == -1:
             # n_jobs=-1 means requesting all available workers
             n_jobs = max_num_concurrent_tasks
         if n_jobs > max_num_concurrent_tasks:
