@@ -90,8 +90,11 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             # n_jobs=-1 means requesting all available workers
             n_jobs = max_num_concurrent_tasks
         if n_jobs > max_num_concurrent_tasks:
-            n_jobs = max_num_concurrent_tasks
-            warnings.warn("limit n_jobs to be maxNumConcurrentTasks in spark: " + str(n_jobs))
+            warnings.warn("User-specified n_jobs ({n}) is greater than "
+                          "max_num_concurrent_tasks ({c}), "
+                          "if spark executor use dynamic allocation mode, "
+                          "more executors will be allocated."
+                          .format(n=n_jobs, c=max_num_concurrent_tasks))
         return n_jobs
 
     def _get_max_num_concurrent_tasks(self):
