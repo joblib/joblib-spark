@@ -20,47 +20,16 @@
 # Return on any failure
 set -e
 
-# assumes run from python/ directory
-if [ -z "$SPARK_HOME" ]; then
-    echo 'You need to set $SPARK_HOME to run these tests.' >&2
-    exit 1
-fi
-
-# Honor the choice of python driver
-if [ -z "$PYSPARK_PYTHON" ]; then
-    PYSPARK_PYTHON=`which python`
-fi
-# Override the python driver version as well to make sure we are in sync in the tests.
-export PYSPARK_DRIVER_PYTHON=$PYSPARK_PYTHON
-python_major=$($PYSPARK_PYTHON -c 'import sys; print(".".join(map(str, sys.version_info[:1])))')
-
-LIBS=""
-for lib in "$SPARK_HOME/python/lib"/*zip ; do
-  LIBS=$LIBS:$lib
-done
-
 # The current directory of the script.
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-
-export PYSPARK_SUBMIT_ARGS="--driver-memory 2g --executor-memory 2g pyspark-shell "
-
-export PYTHONPATH=$PYTHONPATH:$SPARK_HOME/python:$LIBS:.
-
-export PYTHONPATH=$PYTHONPATH:joblibspark
-
-echo "PYTHONPATH: ${PYTHONPATH}"
-
 # Run pylint
-$PYSPARK_DRIVER_PYTHON -m pylint joblibspark
+python -m pylint joblibspark
 
 # Run test suites
-echo "PYSPARK_PIN_THREAD: ${PYSPARK_PIN_THREAD}"
+echo python -m "nose" -v --all-modules -w $DIR 2>&1 | grep -vE "INFO (ParquetOutputFormat|SparkContext|ContextCleaner|ShuffleBlockFetcherIterator|MapOutputTrackerMaster|TaskSetManager|Executor|MemoryStore|CacheManager|BlockManager|DAGScheduler|PythonRDD|TaskSchedulerImpl|ZippedPartitionsRDD2)";
 
-echo $PYSPARK_DRIVER_PYTHON -m "nose" -v --all-modules -w $DIR 2>&1 | grep -vE "INFO (ParquetOutputFormat|SparkContext|ContextCleaner|ShuffleBlockFetcherIterator|MapOutputTrackerMaster|TaskSetManager|Executor|MemoryStore|CacheManager|BlockManager|DAGScheduler|PythonRDD|TaskSchedulerImpl|ZippedPartitionsRDD2)";
-
-$PYSPARK_DRIVER_PYTHON -m "nose" -v --all-modules -w $DIR 2>&1 | grep -vE "INFO (ParquetOutputFormat|SparkContext|ContextCleaner|ShuffleBlockFetcherIterator|MapOutputTrackerMaster|TaskSetManager|Executor|MemoryStore|CacheManager|BlockManager|DAGScheduler|PythonRDD|TaskSchedulerImpl|ZippedPartitionsRDD2)";
-
+python -m "nose" -v --all-modules -w $DIR 2>&1 | grep -vE "INFO (ParquetOutputFormat|SparkContext|ContextCleaner|ShuffleBlockFetcherIterator|MapOutputTrackerMaster|TaskSetManager|Executor|MemoryStore|CacheManager|BlockManager|DAGScheduler|PythonRDD|TaskSchedulerImpl|ZippedPartitionsRDD2)";
 
 # Exit immediately if the tests fail.
 # Since we pipe to remove the output, we need to use some horrible BASH features:

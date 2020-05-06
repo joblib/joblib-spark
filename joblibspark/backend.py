@@ -21,20 +21,23 @@ import warnings
 from multiprocessing.pool import ThreadPool
 import uuid
 from distutils.version import LooseVersion
-import os
 
 from joblib.parallel \
     import AutoBatchingMixin, ParallelBackendBase, register_parallel_backend, SequentialBackend
 from joblib._parallel_backends import SafeFunction
 
+import pyspark
 from pyspark.sql import SparkSession
 from pyspark import cloudpickle
+from pyspark.util import VersionUtils
 
 
 def register():
     """
     Register joblib spark backend.
     """
+    if VersionUtils.majorMinorVersion(pyspark.__version__)[0] < 3:
+        raise RuntimeError("Joblib-spark only support spark >= 3.0")
     try:
         import sklearn  # pylint: disable=C0415
         if LooseVersion(sklearn.__version__) < LooseVersion('0.21'):
@@ -66,21 +69,8 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             .getOrCreate()
         self._job_group = "joblib-spark-job-group-" + str(uuid.uuid4())
 
-    def _check_pyspark_pin_thread_mode(self):
-        if LooseVersion(self._spark.sparkContext.version) < LooseVersion('3.0.0'):
-            return False
-        if os.environ.get("PYSPARK_PIN_THREAD", "false").lower() == "true":
-            return True
-        return False
-
     def _cancel_all_jobs(self):
-        if self._check_pyspark_pin_thread_mode():
-            self._spark.sparkContext.cancelJobGroup(self._job_group)
-        else:
-            # Note: There's bug existing in `sparkContext.cancelJobGroup`.
-            # See https://github.com/apache/spark/pull/24898
-            warnings.warn("Because pyspark py4j is not in pinned thread mode, "
-                          "we could not terminate running spark jobs correctly.")
+        self._spark.sparkContext.cancelJobGroup(self._job_group)
 
     def effective_n_jobs(self, n_jobs):
         max_num_concurrent_tasks = self._get_max_num_concurrent_tasks()
@@ -130,10 +120,9 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         # See joblib.parallel.Parallel._dispatch
         def run_on_worker_and_fetch_result():
             # TODO: handle possible spark exception here. # pylint: disable=fixme
-            self._spark.sparkContext.setJobGroup(self._job_group, "joblib spark jobs")
             ser_res = self._spark.sparkContext.parallelize([0], 1) \
                 .map(lambda _: cloudpickle.dumps(func())) \
-                .first()
+                .collectWithJobGroup(self._job_group, "joblib spark jobs")[0]
             return cloudpickle.loads(ser_res)
 
         return self._get_pool().apply_async(
