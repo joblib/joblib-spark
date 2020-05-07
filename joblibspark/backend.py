@@ -36,8 +36,6 @@ def register():
     """
     Register joblib spark backend.
     """
-    if VersionUtils.majorMinorVersion(pyspark.__version__)[0] < 3:
-        raise RuntimeError("Joblib-spark only support spark >= 3.0")
     try:
         import sklearn  # pylint: disable=C0415
         if LooseVersion(sklearn.__version__) < LooseVersion('0.21'):
@@ -70,7 +68,13 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         self._job_group = "joblib-spark-job-group-" + str(uuid.uuid4())
 
     def _cancel_all_jobs(self):
-        self._spark.sparkContext.cancelJobGroup(self._job_group)
+        if VersionUtils.majorMinorVersion(pyspark.__version__)[0] < 3:
+            # Note: There's bug existing in `sparkContext.cancelJobGroup`.
+            # See https://issues.apache.org/jira/browse/SPARK-31549
+            warnings.warn("For spark version < 3, pyspark cancelling job API has bugs, "
+                          "so we could not terminate running spark jobs correctly.")
+        else:
+            self._spark.sparkContext.cancelJobGroup(self._job_group)
 
     def effective_n_jobs(self, n_jobs):
         max_num_concurrent_tasks = self._get_max_num_concurrent_tasks()
@@ -120,9 +124,12 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         # See joblib.parallel.Parallel._dispatch
         def run_on_worker_and_fetch_result():
             # TODO: handle possible spark exception here. # pylint: disable=fixme
-            ser_res = self._spark.sparkContext.parallelize([0], 1) \
-                .map(lambda _: cloudpickle.dumps(func())) \
-                .collectWithJobGroup(self._job_group, "joblib spark jobs")[0]
+            rdd = self._spark.sparkContext.parallelize([0], 1) \
+                .map(lambda _: cloudpickle.dumps(func()))
+            if VersionUtils.majorMinorVersion(pyspark.__version__)[0] < 3:
+                ser_res = rdd.collect()[0]
+            else:
+                ser_res = rdd.collectWithJobGroup(self._job_group, "joblib spark jobs")[0]
             return cloudpickle.loads(ser_res)
 
         return self._get_pool().apply_async(

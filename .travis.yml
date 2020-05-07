@@ -18,11 +18,12 @@ jdk:
 
 matrix:
   include:
-    - env: SKLEARN_VERSION=0.21.3
+    - env: PIP_PYSPARK=https://ml-team-public-read.s3-us-west-2.amazonaws.com/pyspark-3.0.1.dev0-860849-20200506.tar.gz
+    - env: PIP_PYSPARK="pyspark==2.4.5"
 
 install:
-  - pip install joblib==0.14.0 scikit-learn==${SKLEARN_VERSION} nose==1.3.3 pytest pylint;
-  - pip install https://ml-team-public-read.s3-us-west-2.amazonaws.com/pyspark-3.0.1.dev0-860849-20200506.tar.gz
+  - pip install joblib==0.14.0 scikit-learn==0.21.3 nose==1.3.3 pytest pylint;
+  - pip install ${PIP_PYSPARK}
 
 script:
   - PYSPARK_PYTHON=python ./run-tests.sh
