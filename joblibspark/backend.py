@@ -72,7 +72,8 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             # Note: There's bug existing in `sparkContext.cancelJobGroup`.
             # See https://issues.apache.org/jira/browse/SPARK-31549
             warnings.warn("For spark version < 3, pyspark cancelling job API has bugs, "
-                          "so we could not terminate running spark jobs correctly.")
+                          "so we could not terminate running spark jobs correctly. "
+                          "See https://issues.apache.org/jira/browse/SPARK-31549 for reference.")
         else:
             self._spark.sparkContext.cancelJobGroup(self._job_group)
 

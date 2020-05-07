@@ -14,7 +14,7 @@ python:
   - "3.7"
 
 jdk:
-   - oraclejdk8
+   - openjdk8
 
 matrix:
   include:
