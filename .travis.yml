@@ -18,15 +18,13 @@ jdk:
 
 matrix:
   include:
-    - env: PYSPARK_PIN_THREAD=true SKLEARN_VERSION=0.21.3 SPARK_VERSION=3.0.0-SNAPSHOT
-    - env: SKLEARN_VERSION=0.21.3 SPARK_VERSION=2.4.4
-
-before_install:
-  - ./bin/download_travis_dependencies.sh
+    - env: PIP_PYSPARK=https://ml-team-public-read.s3-us-west-2.amazonaws.com/pyspark-3.0.1.dev0-860849-20200506.tar.gz
+    - env: PIP_PYSPARK="pyspark==2.4.5" JAVA_HOME="/usr/lib/jvm/java-1.8.0-openjdk-amd64"
 
 install:
-  - pip install joblib==0.14.0 scikit-learn==${SKLEARN_VERSION} nose==1.3.3 pytest pylint;
+  - pip install joblib==0.14.0 scikit-learn==0.21.3 nose==1.3.3 pytest pylint;
+  - pip install ${PIP_PYSPARK}
 
 script:
-  - PYSPARK_PYTHON=python SPARK_HOME=$HOME/.cache/spark-versions/spark-${SPARK_VERSION}-bin-hadoop2.7 ./run-tests.sh
+  - PYSPARK_PYTHON=python ./run-tests.sh
 
