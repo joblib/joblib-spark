@@ -130,9 +130,8 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
 
         if parallelism > SparkDistributedBackend.MAX_CONCURRENT_JOBS_ALLOWED:
             logger.warning(
-                "Parallelism ({p}) is capped at SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED ({c}).".format(
-                    p=parallelism, c=SparkDistributedBackend.MAX_CONCURRENT_JOBS_ALLOWED
-                )
+                "Parallelism ({p}) is capped at SparkTrials.MAX_CONCURRENT_JOBS_ALLOWED ({c})."
+                .format(p=parallelism, c=SparkDistributedBackend.MAX_CONCURRENT_JOBS_ALLOWED)
             )
             parallelism = SparkDistributedBackend.MAX_CONCURRENT_JOBS_ALLOWED
 
