@@ -17,6 +17,8 @@
 """
 The joblib spark backend implementation.
 """
+
+# pylint: disable=W0621,W1202
 import sys
 import logging
 import warnings
@@ -96,9 +98,9 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             self._spark.sparkContext.cancelJobGroup(self._job_group)
 
     @staticmethod
-    def _decide_parallelism(
-        requested_parallelism, spark_default_parallelism, max_num_concurrent_tasks
-    ):
+    def _decide_parallelism(requested_parallelism,
+                            spark_default_parallelism,
+                            max_num_concurrent_tasks):
         """
         Given the requested parallelism, return the max parallelism SparkTrials will actually use.
         See the docstring for `parallelism` in the constructor for expected behavior.
@@ -108,8 +110,9 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                 "The cluster has no executors currently. "
                 "The trials won't start until some new executors register."
             )
-
-        if requested_parallelism is None or requested_parallelism <= 0:
+        if requested_parallelism is None:
+            requested_parallelism = 1
+        elif requested_parallelism <= 0:
             parallelism = max(spark_default_parallelism, max_num_concurrent_tasks, 1)
             logger.warning(
                 "Because the requested parallelism was None or a non-positive value, "
@@ -143,20 +146,19 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         return parallelism
 
     def effective_n_jobs(self, n_jobs):
+        """
+        n_jobs is None will request 1 worker.
+        n_jobs=-1 means requesting all available workers,
+        but if cluster in dynamic allocation mode and available workers is zero
+        then use spark_default_parallelism and trigger spark worker dynamic allocation
+        """
         max_num_concurrent_tasks = self._get_max_num_concurrent_tasks()
-        spark_default_parallelism = self._spark_context.defaultParallelism
-        if n_jobs is None:
-            n_jobs = 1
-        elif n_jobs == -1:
-            # n_jobs=-1 means requesting all available workers
-            # But if cluster in dynamic allocation mode and available workers is zero
-            # then use spark_default_parallelism and trigger spark worker dynamic allocation
-            n_jobs = self._decide_parallelism(
-                requested_parallelism=n_jobs,
-                spark_default_parallelism=spark_default_parallelism,
-                max_num_concurrent_tasks=max_num_concurrent_tasks,
-            )
-        return n_jobs
+        spark_default_parallelism = self._spark.sparkContext.defaultParallelism
+        return self._decide_parallelism(
+            requested_parallelism=n_jobs,
+            spark_default_parallelism=spark_default_parallelism,
+            max_num_concurrent_tasks=max_num_concurrent_tasks,
+        )
 
     def _get_max_num_concurrent_tasks(self):
         # maxNumConcurrentTasks() is a package private API
