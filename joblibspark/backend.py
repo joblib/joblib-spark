@@ -111,7 +111,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                 "The trials won't start until some new executors register."
             )
         if requested_parallelism is None:
-            requested_parallelism = 1
+            parallelism = 1
         elif requested_parallelism <= 0:
             parallelism = max(spark_default_parallelism, max_num_concurrent_tasks, 1)
             logger.warning(
