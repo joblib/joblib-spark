@@ -4,7 +4,11 @@ Installing joblib
 Using `pip`
 ------------
 
-`joblibspark` requires Python 3.6+, `joblib>=0.14` and `pyspark>=2.4.4` to run.
+`joblibspark` requires Python 3.6+, `joblib>=0.14` and `pyspark>=2.4.0` to run.
+* Note: For spark version < 3, pyspark cancelling job API has bugs, so we could
+  not terminate running spark jobs correctly. See
+  https://issues.apache.org/jira/browse/SPARK-31549 for reference.
+  So we recommend to install spark 3.0 which addressed this issue.
 
 * To install `joblibspark`, run::
 
@@ -26,7 +30,7 @@ Using `pip`
   PySpark is already installed. If you do not have PySpark installed, you can
   install `pyspark` together with `joblibspark`::
 
-    pip install pyspark>=2.4.4 joblibspark
+    pip install pyspark>=3.0.0 joblibspark
 
 * If you want to use `joblibspark` with `scikit-learn`, please install `scikit-learn>=0.21`::
 
