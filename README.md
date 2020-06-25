@@ -15,7 +15,7 @@ The installation does not install PySpark because for most users, PySpark is alr
 If you do not have PySpark installed, you can install `pyspark` together with `joblibspark`:
 
 ```bash
-pip install pyspark>=2.4.5 joblibspark
+pip install pyspark>=3.0.0 joblibspark
 ```
 
 If you want to use `joblibspark` with `scikit-learn`, please install `scikit-learn>=0.21`.
