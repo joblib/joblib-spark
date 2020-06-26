@@ -109,6 +109,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
     def configure(self, n_jobs=1, parallel=None, prefer=None, require=None, **backend_args):
         n_jobs = self.effective_n_jobs(n_jobs)
         self._n_jobs = n_jobs
+        self.parallel = parallel  # pylint: disable=attribute-defined-outside-init
         return n_jobs
 
     def _get_pool(self):
