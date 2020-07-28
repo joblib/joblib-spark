@@ -20,10 +20,6 @@ pip install pyspark>=3.0.0 joblibspark
 
 If you want to use `joblibspark` with `scikit-learn`, please install `scikit-learn>=0.21`.
 
-## Limitations
-
-`joblibspark` does not support parallel model inference and parallel feature engineering.
-
 ## Examples
 
 Run following example code in `pyspark` shell:
@@ -44,3 +40,29 @@ with parallel_backend('spark', n_jobs=3):
 
 print(scores)
 ```
+
+## Limitations
+
+`joblibspark` does not generally support run model inference and feature engineering in parallel.
+For example:
+
+```python
+from sklearn.feature_extraction import FeatureHasher
+h = FeatureHasher(n_features=10)
+with parallel_backend('spark', n_jobs=3):
+    # This won't run parallelly on spark, it will still run locally.
+    h.transform(...)
+
+from sklearn import linear_model
+regr = linear_model.LinearRegression()
+regr.fit(X_train, y_train)
+
+with parallel_backend('spark', n_jobs=3):
+    # This won't run parallelly on spark, it will still run locally.
+    regr.predict(diabetes_X_test)
+```
+
+But note that, for some algorithm, such as `sklearn.ensemble.RandomForestClassifier`, there's `n_jobs`
+parameter, that means the algorithm may support model training/inference in parallel, and its implementation
+may bind the backend to built-in backends, so the spark backend may still not work. User need check
+corresponding class doc for details.
