@@ -20,6 +20,10 @@ pip install pyspark>=3.0.0 joblibspark
 
 If you want to use `joblibspark` with `scikit-learn`, please install `scikit-learn>=0.21`.
 
+## Limitations
+
+`joblibspark` does not support parallel model inference and parallel feature engineering.
+
 ## Examples
 
 Run following example code in `pyspark` shell:
