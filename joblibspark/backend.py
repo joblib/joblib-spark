@@ -58,7 +58,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
     """
 
     def __init__(self, **backend_args):
-        # pylint: super-with-arguments
+        # pylint: disable=super-with-arguments
         super(SparkDistributedBackend, self).__init__(**backend_args)
         self._pool = None
         self._n_jobs = None

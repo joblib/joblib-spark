@@ -31,7 +31,7 @@ def register_spark():
     except ImportError:
         msg = ("To use the spark.distributed backend you must install "
                "the pyspark and packages.\n\n")
-        raise ImportError(msg)  # pylint: raise-missing-from
+        raise ImportError(msg)  # pylint: disable=raise-missing-from
 
 
 __all__ = ['register_spark']
