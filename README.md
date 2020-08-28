@@ -62,7 +62,7 @@ with parallel_backend('spark', n_jobs=3):
     regr.predict(diabetes_X_test)
 ```
 
-But note that, for some algorithm, such as `sklearn.ensemble.RandomForestClassifier`, there's `n_jobs`
-parameter, that means the algorithm may support model training/inference in parallel, and its implementation
-may bind the backend to built-in backends, so the spark backend may still not work. User need check
-corresponding class doc for details.
+Note: for `sklearn.ensemble.RandomForestClassifier`, there is a `n_jobs` parameter,
+that means the algorithm support model training/inference in parallel,
+but in its inference implementation, it bind the backend to built-in backends,
+so the spark backend not work for this case.
