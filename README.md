@@ -40,3 +40,29 @@ with parallel_backend('spark', n_jobs=3):
 
 print(scores)
 ```
+
+## Limitations
+
+`joblibspark` does not generally support run model inference and feature engineering in parallel.
+For example:
+
+```python
+from sklearn.feature_extraction import FeatureHasher
+h = FeatureHasher(n_features=10)
+with parallel_backend('spark', n_jobs=3):
+    # This won't run parallelly on spark, it will still run locally.
+    h.transform(...)
+
+from sklearn import linear_model
+regr = linear_model.LinearRegression()
+regr.fit(X_train, y_train)
+
+with parallel_backend('spark', n_jobs=3):
+    # This won't run parallelly on spark, it will still run locally.
+    regr.predict(diabetes_X_test)
+```
+
+Note: for `sklearn.ensemble.RandomForestClassifier`, there is a `n_jobs` parameter,
+that means the algorithm support model training/inference in parallel,
+but in its inference implementation, it bind the backend to built-in backends,
+so the spark backend not work for this case.
