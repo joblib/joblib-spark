@@ -96,7 +96,12 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
     def _get_max_num_concurrent_tasks(self):
         # maxNumConcurrentTasks() is a package private API
         # pylint: disable=W0212
-        return self._spark.sparkContext._jsc.sc().maxNumConcurrentTasks()
+        pysparkVersion = VersionUtils.majorMinorVersion(pyspark.__version__)
+        if pysparkVersion < (3, 1):
+            return self._spark.sparkContext._jsc.sc().maxNumConcurrentTasks()
+        else:
+            sc = self._spark.sparkContext._jsc.sc()
+            return sc.maxNumConcurrentTasks(sc.resourceProfileManager().resourceProfileFromId(0))
 
     def abort_everything(self, ensure_ready=True):
         self._cancel_all_jobs()
