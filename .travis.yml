@@ -10,16 +10,18 @@ cache:
 
 language: python
 
-python:
-  - "3.7"
 
 jdk:
    - openjdk8
 
 matrix:
   include:
-    - env: PIP_PYSPARK=https://ml-team-public-read.s3-us-west-2.amazonaws.com/pyspark-3.0.1.dev0-860849-20200506.tar.gz
-    - env: PIP_PYSPARK="pyspark==2.4.5" JAVA_HOME="/usr/lib/jvm/java-1.8.0-openjdk-amd64"
+    - python: 3.8
+      env: PIP_PYSPARK=https://ml-team-public-read.s3-us-west-2.amazonaws.com/pyspark-3.1.0.dev0-60dd1a690fed62b1d6442cdc8cf3f89ef4304d5a.tar.gz
+    - python: 3.7
+      env: PIP_PYSPARK="pyspark==3.0.1"
+    - python: 3.7
+      env: PIP_PYSPARK="pyspark==2.4.5" JAVA_HOME="/usr/lib/jvm/java-1.8.0-openjdk-amd64"
 
 install:
   - pip install joblib==0.14.0 scikit-learn==0.21.3 nose==1.3.3 pytest pylint;
