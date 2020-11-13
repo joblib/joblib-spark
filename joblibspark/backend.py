@@ -100,7 +100,8 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         spark_context = self._spark.sparkContext._jsc.sc()
         if pyspark_version < (3, 1):
             return spark_context.maxNumConcurrentTasks()
-        return spark_context.maxNumConcurrentTasks(spark_context.resourceProfileManager().resourceProfileFromId(0))
+        return spark_context.maxNumConcurrentTasks(
+                 spark_context.resourceProfileManager().resourceProfileFromId(0))
 
     def abort_everything(self, ensure_ready=True):
         self._cancel_all_jobs()
