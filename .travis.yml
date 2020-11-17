@@ -16,7 +16,7 @@ jdk:
 
 matrix:
   include:
-    - python: 3.7
+    - python: 3.8
       arch: arm64
       env: PIP_PYSPARK=https://ml-team-public-read.s3-us-west-2.amazonaws.com/pyspark-3.1.0.dev0-e2c7bfce40c309299f99c50c191c178180d756e5.tar.gz
            SKLEARN_VERSION="0.23.1"
