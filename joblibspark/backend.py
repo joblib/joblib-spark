@@ -130,15 +130,28 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
     def apply_async(self, func, callback=None):
         # Note the `func` args is a batch here. (BatchedCalls type)
         # See joblib.parallel.Parallel._dispatch
-        def run_on_worker_and_fetch_result():
-            # TODO: handle possible spark exception here. # pylint: disable=fixme
-            rdd = self._spark.sparkContext.parallelize([0], 1) \
-                .map(lambda _: cloudpickle.dumps(func()))
-            if VersionUtils.majorMinorVersion(pyspark.__version__)[0] < 3:
+
+        sparkMajorMinorVersion = \
+            VersionUtils.majorMinorVersion(pyspark.__version__)
+        if sparkMajorMinorVersion < (3, 2):
+            def run_on_worker_and_fetch_result():
+                # TODO: handle possible spark exception here. # pylint: disable=fixme
+                rdd = self._spark.sparkContext.parallelize([0], 1) \
+                    .map(lambda _: cloudpickle.dumps(func()))
+                if sparkMajorMinorVersion[0] < 3:
+                    ser_res = rdd.collect()[0]
+                else:
+                    ser_res = rdd.collectWithJobGroup(self._job_group, "joblib spark jobs")[0]
+                return cloudpickle.loads(ser_res)
+        else:
+            from pyspark import inheritable_thread_target
+
+            @inheritable_thread_target
+            def run_on_worker_and_fetch_result():
+                rdd = self._spark.sparkContext.parallelize([0], 1) \
+                    .map(lambda _: cloudpickle.dumps(func()))
                 ser_res = rdd.collect()[0]
-            else:
-                ser_res = rdd.collectWithJobGroup(self._job_group, "joblib spark jobs")[0]
-            return cloudpickle.loads(ser_res)
+                return cloudpickle.loads(ser_res)
 
         return self._get_pool().apply_async(
             SafeFunction(run_on_worker_and_fetch_result),
