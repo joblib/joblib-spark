@@ -131,20 +131,20 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         # Note the `func` args is a batch here. (BatchedCalls type)
         # See joblib.parallel.Parallel._dispatch
 
-        sparkMajorMinorVersion = \
+        spark_major_minor_ver = \
             VersionUtils.majorMinorVersion(pyspark.__version__)
-        if sparkMajorMinorVersion < (3, 2):
+        if spark_major_minor_ver < (3, 2):
             def run_on_worker_and_fetch_result():
                 # TODO: handle possible spark exception here. # pylint: disable=fixme
                 rdd = self._spark.sparkContext.parallelize([0], 1) \
                     .map(lambda _: cloudpickle.dumps(func()))
-                if sparkMajorMinorVersion[0] < 3:
+                if spark_major_minor_ver[0] < 3:
                     ser_res = rdd.collect()[0]
                 else:
                     ser_res = rdd.collectWithJobGroup(self._job_group, "joblib spark jobs")[0]
                 return cloudpickle.loads(ser_res)
         else:
-            from pyspark import inheritable_thread_target
+            from pyspark import inheritable_thread_target  # pylint: disable=import-outside-toplevel,no-name-in-module
 
             @inheritable_thread_target
             def run_on_worker_and_fetch_result():
