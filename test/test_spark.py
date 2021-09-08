@@ -30,6 +30,8 @@ from sklearn.utils import parallel_backend
 from sklearn.model_selection import cross_val_score
 from sklearn import datasets
 from sklearn import svm
+import pyspark
+import pyspark.util
 
 register_spark()
 
@@ -73,6 +75,8 @@ def test_sklearn_cv():
         assert(pytest.approx(scores[i], 0.01) == expected[i])
 
 
+@pytest.mark.skipif(pyspark.util.VersionUtils.majorMinorVersion(pyspark.__version__) < (3, 0),
+                    reason='pyspark version < 3 cancelling job via job group is buggy')
 def test_job_cancelling():
     from joblib import Parallel, delayed
     import time
