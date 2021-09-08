@@ -6,7 +6,7 @@ jobs:
     strategy:
       matrix:
         PIP_PYSPARK: [ 'pyspark==3.0.1', 'pyspark==3.1.2', 'https://dist.apache.org/repos/dist/dev/spark/v3.2.0-rc2-bin/pyspark-3.2.0.tar.gz' ]
-    name: Run test on ${{ matrix.python-version }}
+    name: Run test on ${{ matrix.PIP_PYSPARK }}
     steps:
       - uses: actions/checkout@v2
       - name: Setup python
@@ -16,5 +16,5 @@ jobs:
           architecture: x64
       - run: |
           pip install joblib==0.14.0 scikit-learn==0.23.1 nose==1.3.3 pytest pylint
-          pip install ${{matrix.PIP_PYSPARK}}
+          pip install ${{ matrix.PIP_PYSPARK }}
           ./run-tests.sh
