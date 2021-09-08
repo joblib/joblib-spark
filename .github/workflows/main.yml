@@ -16,7 +16,7 @@ jobs:
           architecture: x64
       - name: Install python packages
         run: |
-          pip install joblib==0.14.0 scikit-learn==0.23.1 nose==1.3.3 pytest pylint
+          pip install joblib==0.14.0 scikit-learn==0.23.1 pytest pylint
           pip install ${{ matrix.PIP_PYSPARK }}
       - name: Run pylint
         run: |

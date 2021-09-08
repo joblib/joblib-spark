@@ -24,4 +24,4 @@ set -e
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Run test suites
-pytest test -s
+pytest test -s --color=yes
