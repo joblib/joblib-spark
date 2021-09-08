@@ -75,8 +75,6 @@ def test_sklearn_cv():
         assert(pytest.approx(scores[i], 0.01) == expected[i])
 
 
-@pytest.mark.skipif(pyspark.util.VersionUtils.majorMinorVersion(pyspark.__version__) < (3, 0),
-                    reason='pyspark version < 3 cancelling job via job group is buggy')
 def test_job_cancelling():
     from joblib import Parallel, delayed
     import time
@@ -96,8 +94,8 @@ def test_job_cancelling():
                 pass
 
     with pytest.raises(Exception):
-        with parallel_backend('spark', n_jobs=4):
-            Parallel()(delayed(test_fn)(i) for i in range(4))
+        with parallel_backend('spark', n_jobs=2):
+            Parallel()(delayed(test_fn)(i) for i in range(2))
 
     time.sleep(30)  # wait until we can ensure all task finish or cancelled.
     # assert all jobs was cancelled, no flag file will be written to tmp dir.
