@@ -20,9 +20,6 @@
 # Return on any failure
 set -e
 
-# The current directory of the script.
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
 # Run pylint
 python -m pylint joblibspark
 

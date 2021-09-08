@@ -30,8 +30,6 @@ from sklearn.utils import parallel_backend
 from sklearn.model_selection import cross_val_score
 from sklearn import datasets
 from sklearn import svm
-import pyspark
-import pyspark.util
 
 register_spark()
 
