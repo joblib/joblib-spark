@@ -9,12 +9,17 @@ jobs:
     name: Run test on ${{ matrix.PIP_PYSPARK }}
     steps:
       - uses: actions/checkout@v2
-      - name: Setup python
+      - name: Setup environment
         uses: actions/setup-python@v2
         with:
           python-version: '3.7'
           architecture: x64
-      - run: |
+        run: |
           pip install joblib==0.14.0 scikit-learn==0.23.1 nose==1.3.3 pytest pylint
           pip install ${{ matrix.PIP_PYSPARK }}
+      - name: Run pylint
+        run: |
+          ./run-pylint.sh
+      - name: Run test suites
+        run: |
           ./run-tests.sh
