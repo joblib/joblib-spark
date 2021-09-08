@@ -71,3 +71,30 @@ def test_sklearn_cv():
 
     for i in range(5):
         assert(pytest.approx(scores[i], 0.01) == expected[i])
+
+
+def test_job_cancelling():
+    from joblib import Parallel, delayed
+    import time
+    import tempfile
+    import os
+
+    tmp_dir = tempfile.mkdtemp()
+
+    def test_fn(x):
+        if x == 0:
+            # make the task-0 fail, then it will cause task 1/2/3 to be canceled.
+            raise RuntimeError()
+        else:
+            time.sleep(15)
+            # if the task finished successfully, it will write a flag file to tmp dir.
+            with open(os.path.join(tmp_dir, str(x)), 'w'):
+                pass
+
+    with pytest.raises(Exception):
+        with parallel_backend('spark', n_jobs=4):
+            Parallel()(delayed(test_fn)(i) for i in range(4))
+
+    time.sleep(30)  # wait until we can ensure all task finish or cancelled.
+    # assert all jobs was cancelled, no flag file will be written to tmp dir.
+    assert len(os.listdir(tmp_dir)) == 0
