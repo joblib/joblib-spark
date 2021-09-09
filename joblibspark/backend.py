@@ -152,6 +152,10 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                     "spark.jobGroup.id",
                     self._job_group
                 )
+                self._spark.sparkContext.setLocalProperty(
+                    "spark.job.description",
+                    "joblib spark jobs"
+                )
                 rdd = self._spark.sparkContext.parallelize([0], 1) \
                     .map(lambda _: cloudpickle.dumps(func()))
                 ser_res = rdd.collect()[0]

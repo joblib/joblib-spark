@@ -20,5 +20,6 @@
 # Return on any failure
 set -e
 
-# Run test suites
-pytest test -s --color=yes
+# Run pylint
+python -m pylint joblibspark
+

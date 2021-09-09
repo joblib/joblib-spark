@@ -92,8 +92,8 @@ def test_job_cancelling():
                 pass
 
     with pytest.raises(Exception):
-        with parallel_backend('spark', n_jobs=4):
-            Parallel()(delayed(test_fn)(i) for i in range(4))
+        with parallel_backend('spark', n_jobs=2):
+            Parallel()(delayed(test_fn)(i) for i in range(2))
 
     time.sleep(30)  # wait until we can ensure all task finish or cancelled.
     # assert all jobs was cancelled, no flag file will be written to tmp dir.
