@@ -168,11 +168,13 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
 
             return cloudpickle.loads(ser_res)
 
-        if self._spark_pinned_threads_enabled:
+        try:
             # pylint: disable=no-name-in-module,import-outside-toplevel
             from pyspark import inheritable_thread_target
             run_on_worker_and_fetch_result = \
                 inheritable_thread_target(run_on_worker_and_fetch_result)
+        except ImportError:
+            pass
 
         return self._get_pool().apply_async(
             SafeFunction(run_on_worker_and_fetch_result),
