@@ -26,6 +26,8 @@ from joblib.parallel \
     import AutoBatchingMixin, ParallelBackendBase, register_parallel_backend, SequentialBackend
 from joblib._parallel_backends import SafeFunction
 
+from py4j.clientserver import ClientServer
+
 import pyspark
 from pyspark.sql import SparkSession
 from pyspark import cloudpickle
@@ -67,9 +69,16 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             .appName("JoblibSparkBackend") \
             .getOrCreate()
         self._job_group = "joblib-spark-job-group-" + str(uuid.uuid4())
+        self._spark_pinned_threads_enabled = isinstance(
+            self._spark_context._gateway, ClientServer
+        )
+        self._spark_supports_job_cancelling = (
+            self._spark_pinned_threads_enabled
+            or hasattr(self._spark_context.parallelize([1]), "collectWithJobGroup")
+        )
 
     def _cancel_all_jobs(self):
-        if VersionUtils.majorMinorVersion(pyspark.__version__)[0] < 3:
+        if not self._spark_supports_job_cancelling:
             # Note: There's bug existing in `sparkContext.cancelJobGroup`.
             # See https://issues.apache.org/jira/browse/SPARK-31549
             warnings.warn("For spark version < 3, pyspark cancelling job API has bugs, "
@@ -133,33 +142,38 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
 
         spark_major_minor_ver = \
             VersionUtils.majorMinorVersion(pyspark.__version__)
-        if spark_major_minor_ver < (3, 2):
-            def run_on_worker_and_fetch_result():
-                # TODO: handle possible spark exception here. # pylint: disable=fixme
-                rdd = self._spark.sparkContext.parallelize([0], 1) \
-                    .map(lambda _: cloudpickle.dumps(func()))
-                if spark_major_minor_ver[0] < 3:
+
+        def run_on_worker_and_fetch_result():
+            worker_rdd = self._spark.sparkContext.parallelize([0], 1)
+            mapper_fn = lambda _: cloudpickle.dumps(func())
+            if self._spark_supports_job_cancelling:
+                if self._spark_pinned_threads_enabled:
+                    self._spark.sparkContext.setLocalProperty(
+                        "spark.jobGroup.id",
+                        self._job_group
+                    )
+                    self._spark.sparkContext.setLocalProperty(
+                        "spark.job.description",
+                        "joblib spark jobs"
+                    )
+                    rdd = worker_rdd.map(mapper_fn)
                     ser_res = rdd.collect()[0]
                 else:
-                    ser_res = rdd.collectWithJobGroup(self._job_group, "joblib spark jobs")[0]
-                return cloudpickle.loads(ser_res)
-        else:
-            from pyspark import inheritable_thread_target  # pylint: disable=import-outside-toplevel,no-name-in-module
-
-            @inheritable_thread_target
-            def run_on_worker_and_fetch_result():
-                self._spark.sparkContext.setLocalProperty(
-                    "spark.jobGroup.id",
-                    self._job_group
-                )
-                self._spark.sparkContext.setLocalProperty(
-                    "spark.job.description",
-                    "joblib spark jobs"
-                )
-                rdd = self._spark.sparkContext.parallelize([0], 1) \
-                    .map(lambda _: cloudpickle.dumps(func()))
+                    rdd = worker_rdd.map(mapper_fn)
+                    ser_res = rdd.collectWithJobGroup(
+                        self._job_group,
+                        "joblib spark jobs"
+                    )[0]
+            else:
+                rdd = worker_rdd.map(mapper_fn)
                 ser_res = rdd.collect()[0]
-                return cloudpickle.loads(ser_res)
+
+            return cloudpickle.loads(ser_res)
+
+        if self.trials._spark_pinned_threads_enabled:
+            from pyspark import inheritable_thread_target
+            run_on_worker_and_fetch_result = \
+                inheritable_thread_target(run_on_worker_and_fetch_result)
 
         return self._get_pool().apply_async(
             SafeFunction(run_on_worker_and_fetch_result),

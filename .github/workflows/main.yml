@@ -4,9 +4,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        PIP_PYSPARK: [ 'pyspark==3.0.1', 'pyspark==3.1.2', 'https://dist.apache.org/repos/dist/dev/spark/v3.2.0-rc2-bin/pyspark-3.2.0.tar.gz' ]
-    name: Run test on ${{ matrix.PIP_PYSPARK }}
+        include:
+          - PIP_PYSPARK: 'pyspark==3.0.1'
+            PIN_MODE: false
+          - PIP_PYSPARK: 'pyspark==3.1.2'
+            PIN_MODE: false
+          - PIP_PYSPARK: 'pyspark==3.2.0'
+            PIN_MODE: false
+          - PIP_PYSPARK: 'pyspark==3.2.0'
+            PIN_MODE: true
+    name: Run test on ${{ matrix.PIP_PYSPARK }}, pin_mode=${{ matrix.PIN_MODE }}
     steps:
       - uses: actions/checkout@v2
       - name: Setup python
@@ -23,4 +32,4 @@ jobs:
           ./run-pylint.sh
       - name: Run test suites
         run: |
-          ./run-tests.sh
+          PYSPARK_PIN_THREAD=${{ matrix.PIN_MODE }} ./run-tests.sh
