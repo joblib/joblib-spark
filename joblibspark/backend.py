@@ -68,6 +68,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             .builder \
             .appName("JoblibSparkBackend") \
             .getOrCreate()
+        self._spark_context = self._spark.sparkContext
         self._job_group = "joblib-spark-job-group-" + str(uuid.uuid4())
         self._spark_pinned_threads_enabled = isinstance(
             self._spark_context._gateway, ClientServer
@@ -140,9 +141,6 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         # Note the `func` args is a batch here. (BatchedCalls type)
         # See joblib.parallel.Parallel._dispatch
 
-        spark_major_minor_ver = \
-            VersionUtils.majorMinorVersion(pyspark.__version__)
-
         def run_on_worker_and_fetch_result():
             worker_rdd = self._spark.sparkContext.parallelize([0], 1)
             mapper_fn = lambda _: cloudpickle.dumps(func())
@@ -170,7 +168,8 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
 
             return cloudpickle.loads(ser_res)
 
-        if self.trials._spark_pinned_threads_enabled:
+        if self._spark_pinned_threads_enabled:
+            # pylint: disable=no-name-in-module,import-outside-toplevel
             from pyspark import inheritable_thread_target
             run_on_worker_and_fetch_result = \
                 inheritable_thread_target(run_on_worker_and_fetch_result)
