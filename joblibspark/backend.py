@@ -49,6 +49,7 @@ def register():
     register_parallel_backend('spark', SparkDistributedBackend)
 
 
+# pylint: disable=too-many-instance-attributes
 class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
     """A ParallelBackend which will execute all batches on spark.
 
@@ -96,11 +97,10 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             # n_jobs=-1 means requesting all available workers
             n_jobs = max_num_concurrent_tasks
         if n_jobs > max_num_concurrent_tasks:
-            warnings.warn("User-specified n_jobs ({n}) is greater than the max number of "
-                          "concurrent tasks ({c}) this cluster can run now. If dynamic "
-                          "allocation is enabled for the cluster, you might see more "
-                          "executors allocated."
-                          .format(n=n_jobs, c=max_num_concurrent_tasks))
+            warnings.warn(f"User-specified n_jobs ({n_jobs}) is greater than the max number of "
+                          f"concurrent tasks ({max_num_concurrent_tasks}) this cluster can run now."
+                          "If dynamic allocation is enabled for the cluster, you might see more "
+                          "executors allocated.")
         return n_jobs
 
     def _get_max_num_concurrent_tasks(self):
