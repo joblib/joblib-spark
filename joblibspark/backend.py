@@ -142,6 +142,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         # See joblib.parallel.Parallel._dispatch
 
         def run_on_worker_and_fetch_result():
+            # TODO: handle possible spark exception here. # pylint: disable=fixme
             worker_rdd = self._spark.sparkContext.parallelize([0], 1)
             mapper_fn = lambda _: cloudpickle.dumps(func())
             if self._spark_supports_job_cancelling:
