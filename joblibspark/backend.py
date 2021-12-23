@@ -146,7 +146,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         def run_on_worker_and_fetch_result():
             nonlocal ipython_command_canceled
             if ipython_command_canceled:
-                return
+                raise RuntimeError('The task is canceled due to ipython command canceled.')
 
             # TODO: handle possible spark exception here. # pylint: disable=fixme
             worker_rdd = self._spark.sparkContext.parallelize([0], 1)
