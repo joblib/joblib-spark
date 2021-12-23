@@ -190,7 +190,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             )
 
         try:
-            from IPython import get_ipython
+            from IPython import get_ipython  # pylint: disable=import-outside-toplevel
             has_ipython = True
         except ImportError:
             has_ipython = False
@@ -203,7 +203,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                 ipython_command_canceled = True
                 try:
                     self._cancel_all_jobs()
-                except Exception:
+                except Exception:  # pylint: disable=broad-except
                     pass
 
             ipython.events.register("post_run_cell", on_ipython_command_cancel)
