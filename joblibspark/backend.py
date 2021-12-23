@@ -141,12 +141,19 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         # Note the `func` args is a batch here. (BatchedCalls type)
         # See joblib.parallel.Parallel._dispatch
 
+        ipython_command_canceled = False
+
         def run_on_worker_and_fetch_result():
+            nonlocal ipython_command_canceled
+            if ipython_command_canceled:
+                return
+
             # TODO: handle possible spark exception here. # pylint: disable=fixme
             worker_rdd = self._spark.sparkContext.parallelize([0], 1)
             mapper_fn = lambda _: cloudpickle.dumps(func())
             if self._spark_supports_job_cancelling:
                 if self._spark_pinned_threads_enabled:
+                    print('DBG: in pin mode branch')
                     self._spark.sparkContext.setLocalProperty(
                         "spark.jobGroup.id",
                         self._job_group
@@ -158,6 +165,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                     rdd = worker_rdd.map(mapper_fn)
                     ser_res = rdd.collect()[0]
                 else:
+                    print('DBG: in non-pin mode branch.')
                     rdd = worker_rdd.map(mapper_fn)
                     ser_res = rdd.collectWithJobGroup(
                         self._job_group,
@@ -177,10 +185,36 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         except ImportError:
             pass
 
-        return self._get_pool().apply_async(
-            SafeFunction(run_on_worker_and_fetch_result),
-            callback=callback
-        )
+        def run_tasks():
+            return self._get_pool().apply_async(
+                SafeFunction(run_on_worker_and_fetch_result),
+                callback=callback
+            )
+
+        try:
+            from IPython import get_ipython
+            has_ipython = True
+        except ImportError:
+            has_ipython = False
+
+        if has_ipython:
+            ipython = get_ipython()
+
+            def on_ipython_command_cancel():
+                nonlocal ipython_command_canceled
+                ipython_command_canceled = True
+                try:
+                    self._cancel_all_jobs()
+                except Exception:
+                    pass
+
+            ipython.events.register("post_run_cell", on_ipython_command_cancel)
+            try:
+                return run_tasks()
+            finally:
+                ipython.events.unregister("post_run_cell", on_ipython_command_cancel)
+        else:
+            return run_tasks()
 
     def get_nested_backend(self):
         """Backend instance to be used by nested Parallel calls.
