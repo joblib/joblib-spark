@@ -153,7 +153,6 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             mapper_fn = lambda _: cloudpickle.dumps(func())
             if self._spark_supports_job_cancelling:
                 if self._spark_pinned_threads_enabled:
-                    print('DBG: in pin mode branch')
                     self._spark.sparkContext.setLocalProperty(
                         "spark.jobGroup.id",
                         self._job_group
@@ -165,7 +164,6 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                     rdd = worker_rdd.map(mapper_fn)
                     ser_res = rdd.collect()[0]
                 else:
-                    print('DBG: in non-pin mode branch.')
                     rdd = worker_rdd.map(mapper_fn)
                     ser_res = rdd.collectWithJobGroup(
                         self._job_group,
