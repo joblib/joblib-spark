@@ -81,7 +81,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         self._is_running = False
         try:
             from IPython import get_ipython  # pylint: disable=import-outside-toplevel
-            self.ipython = get_ipython()
+            self._ipython = get_ipython()
         except ImportError:
             self._ipython = None
         self._on_post_run_cell = None
