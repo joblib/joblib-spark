@@ -78,8 +78,15 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             self._spark_pinned_threads_enabled
             or hasattr(self._spark_context.parallelize([1]), "collectWithJobGroup")
         )
+        self._is_running = False
+        try:
+            from IPython import get_ipython  # pylint: disable=import-outside-toplevel
+            self.ipython = get_ipython()
+        except ImportError:
+            self._ipython = None
 
     def _cancel_all_jobs(self):
+        self._is_running = False
         if not self._spark_supports_job_cancelling:
             # Note: There's bug existing in `sparkContext.cancelJobGroup`.
             # See https://issues.apache.org/jira/browse/SPARK-31549
@@ -137,6 +144,15 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             self._pool = ThreadPool(self._n_jobs)
         return self._pool
 
+    def start_call(self):
+        self._is_running = True
+        if self._ipython is not None:
+            self._ipython.events.register("post_run_cell", self._cancel_all_jobs)
+
+    def stop_call(self):
+        if self._ipython is not None:
+            self._ipython.events.unregister("post_run_cell", self._cancel_all_jobs)
+
     def apply_async(self, func, callback=None):
         # Note the `func` args is a batch here. (BatchedCalls type)
         # See joblib.parallel.Parallel._dispatch
@@ -183,36 +199,10 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         except ImportError:
             pass
 
-        def run_tasks():
-            return self._get_pool().apply_async(
-                SafeFunction(run_on_worker_and_fetch_result),
-                callback=callback
-            )
-
-        try:
-            from IPython import get_ipython  # pylint: disable=import-outside-toplevel
-            has_ipython = True
-        except ImportError:
-            has_ipython = False
-
-        if has_ipython:
-            ipython = get_ipython()
-
-            def on_ipython_command_cancel():
-                nonlocal ipython_command_canceled
-                ipython_command_canceled = True
-                try:
-                    self._cancel_all_jobs()
-                except Exception:  # pylint: disable=broad-except
-                    pass
-
-            ipython.events.register("post_run_cell", on_ipython_command_cancel)
-            try:
-                return run_tasks()
-            finally:
-                ipython.events.unregister("post_run_cell", on_ipython_command_cancel)
-        else:
-            return run_tasks()
+        return self._get_pool().apply_async(
+            SafeFunction(run_on_worker_and_fetch_result),
+            callback=callback
+        )
 
     def get_nested_backend(self):
         """Backend instance to be used by nested Parallel calls.
