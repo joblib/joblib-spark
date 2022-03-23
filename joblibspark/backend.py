@@ -84,7 +84,6 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             self._ipython = get_ipython()
         except ImportError:
             self._ipython = None
-        self._on_post_run_cell = None
 
     def _cancel_all_jobs(self):
         self._is_running = False
@@ -149,15 +148,13 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         self._is_running = True
         if self._ipython is not None:
             def on_post_run_cell(result):
-                if result.error_in_exec is not None:
-                    self._cancel_all_jobs()
+                try:
+                    if result.error_in_exec is not None:
+                        self._cancel_all_jobs()
+                finally:
+                    self._ipython.events.unregister("post_run_cell", on_post_run_cell)
 
-            self._on_post_run_cell = on_post_run_cell
             self._ipython.events.register("post_run_cell", on_post_run_cell)
-
-    def stop_call(self):
-        if self._ipython is not None:
-            self._ipython.events.unregister("post_run_cell", self._on_post_run_cell)
 
     def apply_async(self, func, callback=None):
         # Note the `func` args is a batch here. (BatchedCalls type)
