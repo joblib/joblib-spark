@@ -78,8 +78,15 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             self._spark_pinned_threads_enabled
             or hasattr(self._spark_context.parallelize([1]), "collectWithJobGroup")
         )
+        self._is_running = False
+        try:
+            from IPython import get_ipython  # pylint: disable=import-outside-toplevel
+            self._ipython = get_ipython()
+        except ImportError:
+            self._ipython = None
 
     def _cancel_all_jobs(self):
+        self._is_running = False
         if not self._spark_supports_job_cancelling:
             # Note: There's bug existing in `sparkContext.cancelJobGroup`.
             # See https://issues.apache.org/jira/browse/SPARK-31549
@@ -137,11 +144,26 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             self._pool = ThreadPool(self._n_jobs)
         return self._pool
 
+    def start_call(self):
+        self._is_running = True
+        if self._ipython is not None:
+            def on_post_run_cell(result):
+                try:
+                    if result.error_in_exec is not None:
+                        self._cancel_all_jobs()
+                finally:
+                    self._ipython.events.unregister("post_run_cell", on_post_run_cell)
+
+            self._ipython.events.register("post_run_cell", on_post_run_cell)
+
     def apply_async(self, func, callback=None):
         # Note the `func` args is a batch here. (BatchedCalls type)
         # See joblib.parallel.Parallel._dispatch
 
         def run_on_worker_and_fetch_result():
+            if not self._is_running:
+                raise RuntimeError('The task is canceled due to ipython command canceled.')
+
             # TODO: handle possible spark exception here. # pylint: disable=fixme
             worker_rdd = self._spark.sparkContext.parallelize([0], 1)
             mapper_fn = lambda _: cloudpickle.dumps(func())
