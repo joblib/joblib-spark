@@ -21,13 +21,14 @@ Joblib spark backend is a extension for joblib, which make joblib running on spa
 __version__ = '0.5.1'
 
 
-def register_spark():
+def register_spark(spark=None):
     """
-    Register spark backend into joblib.
+    Register spark backend into joblib. The user can optionally supply an active SparkSession,
+    otherwise a new one is created by default.
     """
     try:
         from .backend import register # pylint: disable=C0415
-        register()
+        register(spark)
     except ImportError:
         msg = ("To use the spark.distributed backend you must install "
                "the pyspark and packages.\n\n")

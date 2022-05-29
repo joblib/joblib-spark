@@ -35,9 +35,10 @@ from pyspark import cloudpickle
 from pyspark.util import VersionUtils
 
 
-def register():
+def register(spark=None):
     """
-    Register joblib spark backend.
+    Register joblib spark backend. The user can optionally supply an active SparkSession,
+    otherwise a new one is created by default.
     """
     try:
         import sklearn  # pylint: disable=C0415
@@ -47,7 +48,7 @@ def register():
                           "make sklearn use spark backend.")
     except ImportError:
         pass
-    register_parallel_backend('spark', SparkDistributedBackend)
+    register_parallel_backend('spark', lambda: SparkDistributedBackend(spark=spark))
 
 
 # pylint: disable=too-many-instance-attributes
@@ -61,15 +62,20 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
     by `SequentialBackend`
     """
 
-    def __init__(self, **backend_args):
+    def __init__(self, spark=None, **backend_args):
         # pylint: disable=super-with-arguments
         super(SparkDistributedBackend, self).__init__(**backend_args)
         self._pool = None
         self._n_jobs = None
-        self._spark = SparkSession \
-            .builder \
-            .appName("JoblibSparkBackend") \
-            .getOrCreate()
+
+        if spark is None:
+            self._spark = SparkSession \
+                .builder \
+                .appName("JoblibSparkBackend") \
+                .getOrCreate()
+        else:
+            self._spark = spark
+
         self._spark_context = self._spark.sparkContext
         self._job_group = "joblib-spark-job-group-" + str(uuid.uuid4())
         self._spark_pinned_threads_enabled = isinstance(

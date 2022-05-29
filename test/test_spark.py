@@ -26,12 +26,18 @@ else:
 
 from joblibspark import register_spark
 
+from pyspark.sql import SparkSession
 from sklearn.utils import parallel_backend
 from sklearn.model_selection import cross_val_score
 from sklearn import datasets
 from sklearn import svm
 
-register_spark()
+
+@pytest.fixture(scope="session")
+def existing_spark():
+    spark = SparkSession.builder.appName("ExistingSession").getOrCreate()
+    yield spark
+    spark.stop()
 
 
 def inc(x):
@@ -45,6 +51,8 @@ def slow_raise_value_error(condition, duration=0.05):
 
 
 def test_simple():
+    register_spark()
+
     with parallel_backend('spark') as (ba, _):
         seq = Parallel(n_jobs=5)(delayed(inc)(i) for i in range(10))
         assert seq == [inc(i) for i in range(10)]
@@ -55,6 +63,8 @@ def test_simple():
 
 
 def test_sklearn_cv():
+    register_spark()
+
     iris = datasets.load_iris()
     clf = svm.SVC(kernel='linear', C=1)
     with parallel_backend('spark', n_jobs=3):
@@ -74,6 +84,69 @@ def test_sklearn_cv():
 
 
 def test_job_cancelling():
+    from joblib import Parallel, delayed
+    import time
+    import tempfile
+    import os
+
+    register_spark()
+    tmp_dir = tempfile.mkdtemp()
+
+    def test_fn(x):
+        if x == 0:
+            # make the task-0 fail, then it will cause task 1/2/3 to be canceled.
+            raise RuntimeError()
+        else:
+            time.sleep(15)
+            # if the task finished successfully, it will write a flag file to tmp dir.
+            with open(os.path.join(tmp_dir, str(x)), 'w'):
+                pass
+
+    with pytest.raises(Exception):
+        with parallel_backend('spark', n_jobs=2):
+            Parallel()(delayed(test_fn)(i) for i in range(2))
+
+    time.sleep(30)  # wait until we can ensure all task finish or cancelled.
+    # assert all jobs was cancelled, no flag file will be written to tmp dir.
+    assert len(os.listdir(tmp_dir)) == 0
+
+
+def test_simple_reuse_spark(existing_spark):
+    register_spark(existing_spark)
+
+    with parallel_backend('spark') as (ba, _):
+        seq = Parallel(n_jobs=5)(delayed(inc)(i) for i in range(10))
+        assert seq == [inc(i) for i in range(10)]
+
+    with pytest.raises(BaseException):
+        Parallel(n_jobs=5)(delayed(slow_raise_value_error)(i == 3)
+                           for i in range(10))
+
+
+def test_sklearn_cv_reuse_spark(existing_spark):
+    register_spark(existing_spark)
+
+    iris = datasets.load_iris()
+    clf = svm.SVC(kernel='linear', C=1)
+    with parallel_backend('spark', n_jobs=3):
+        scores = cross_val_score(clf, iris.data, iris.target, cv=5)
+
+    expected = [0.97, 1.0, 0.97, 0.97, 1.0]
+
+    for i in range(5):
+        assert(pytest.approx(scores[i], 0.01) == expected[i])
+
+    # test with default n_jobs=-1
+    with parallel_backend('spark'):
+        scores = cross_val_score(clf, iris.data, iris.target, cv=5)
+
+    for i in range(5):
+        assert(pytest.approx(scores[i], 0.01) == expected[i])
+
+
+def test_simple_reuse_spark(existing_spark):
+    register_spark(existing_spark)
+
     from joblib import Parallel, delayed
     import time
     import tempfile
