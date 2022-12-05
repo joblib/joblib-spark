@@ -17,6 +17,7 @@
 """
 The joblib spark backend implementation.
 """
+import atexit
 import warnings
 from multiprocessing.pool import ThreadPool
 import uuid
@@ -142,6 +143,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         """
         if self._pool is None:
             self._pool = ThreadPool(self._n_jobs)
+            atexit.register(self._pool.close)
         return self._pool
 
     def start_call(self):
