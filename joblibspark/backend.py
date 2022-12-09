@@ -21,7 +21,7 @@ import atexit
 import warnings
 from multiprocessing.pool import ThreadPool
 import uuid
-from distutils.version import LooseVersion
+from packaging.version import Version, parse
 
 from joblib.parallel \
     import AutoBatchingMixin, ParallelBackendBase, register_parallel_backend, SequentialBackend
@@ -41,7 +41,7 @@ def register():
     """
     try:
         import sklearn  # pylint: disable=C0415
-        if LooseVersion(sklearn.__version__) < LooseVersion('0.21'):
+        if parse(sklearn.__version__) < Version('0.21'):
             warnings.warn("Your sklearn version is < 0.21, but joblib-spark only support "
                           "sklearn >=0.21 . You can upgrade sklearn to version >= 0.21 to "
                           "make sklearn use spark backend.")
