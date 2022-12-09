@@ -168,7 +168,8 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
 
             # TODO: handle possible spark exception here. # pylint: disable=fixme
             worker_rdd = self._spark.sparkContext.parallelize([0], 1)
-            mapper_fn = lambda _: cloudpickle.dumps(func())
+            def mapper_fn(_):
+                return cloudpickle.dumps(func())
             if self._spark_supports_job_cancelling:
                 if self._spark_pinned_threads_enabled:
                     self._spark.sparkContext.setLocalProperty(
