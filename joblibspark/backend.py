@@ -17,6 +17,7 @@
 """
 The joblib spark backend implementation.
 """
+import atexit
 import warnings
 from multiprocessing.pool import ThreadPool
 import uuid
@@ -142,6 +143,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         """
         if self._pool is None:
             self._pool = ThreadPool(self._n_jobs)
+            atexit.register(self._pool.close)
         return self._pool
 
     def start_call(self):
@@ -166,7 +168,8 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
 
             # TODO: handle possible spark exception here. # pylint: disable=fixme
             worker_rdd = self._spark.sparkContext.parallelize([0], 1)
-            mapper_fn = lambda _: cloudpickle.dumps(func())
+            def mapper_fn(_):
+                return cloudpickle.dumps(func())
             if self._spark_supports_job_cancelling:
                 if self._spark_pinned_threads_enabled:
                     self._spark.sparkContext.setLocalProperty(
