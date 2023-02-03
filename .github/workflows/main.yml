@@ -6,27 +6,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - PIP_PYSPARK: 'pyspark==3.0.1'
-            PIN_MODE: false
-          - PIP_PYSPARK: 'pyspark==3.1.2'
-            PIN_MODE: false
-          - PIP_PYSPARK: 'pyspark==3.2.0'
-            PIN_MODE: false
-          - PIP_PYSPARK: 'pyspark==3.2.0'
+        PYTHON_VERSION: ["3.7", "3.8", "3.9", "3.10"]
+        PIN_MODE: [false, true]
+        PYSPARK_VERSION: ["3.0.3", "3.1.3", "3.2.3", "3.3.1"]
+        exclude:
+          - PYSPARK_VERSION: "3.0.3"
             PIN_MODE: true
-    name: Run test on ${{ matrix.PIP_PYSPARK }}, pin_mode=${{ matrix.PIN_MODE }}
+          - PYSPARK_VERSION: "3.1.3"
+            PIN_MODE: true
+    name: Run test on pyspark ${{ matrix.PYSPARK_VERSION }}, pin_mode ${{ matrix.PIN_MODE }}, python ${{ matrix.PYTHON_VERSION }}
     steps:
-      - uses: actions/checkout@v2
-      - name: Setup python
-        uses: actions/setup-python@v2
+      - uses: actions/checkout@v3
+      - name: Setup python ${{ matrix.PYTHON_VERSION }}
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.7'
+          python-version: ${{ matrix.PYTHON_VERSION }}
           architecture: x64
       - name: Install python packages
         run: |
-          pip install joblib==0.14.0 scikit-learn==0.23.1 pytest pylint
-          pip install ${{ matrix.PIP_PYSPARK }}
+          pip install joblib>=0.14.0 scikit-learn>=0.23.1 pytest pylint
+          pip install pyspark==${{ matrix.PYSPARK_VERSION }}
       - name: Run pylint
         run: |
           ./run-pylint.sh

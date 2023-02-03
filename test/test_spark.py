@@ -16,10 +16,10 @@
 #
 from time import sleep
 import pytest
-from distutils.version import LooseVersion
+from packaging.version import Version, parse
 import sklearn
 
-if LooseVersion(sklearn.__version__) < LooseVersion('0.21'):
+if parse(sklearn.__version__) < Version('0.21'):
     raise RuntimeError("Test requires sklearn version >=0.21")
 else:
     from joblib.parallel import Parallel, delayed, parallel_backend
