@@ -206,15 +206,16 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                 inheritable_thread_target(run_on_worker_and_fetch_result)
         except ImportError:
             pass
-        
-        if SafeFunction is not None:
-            return self._get_pool().apply_async(
-                SafeFunction(run_on_worker_and_fetch_result), callback=callback
-            )
-        else:
+
+        if SafeFunction is None:
             return self._get_pool().apply_async(
                 run_on_worker_and_fetch_result, callback=callback
             )
+
+        return self._get_pool().apply_async(
+            SafeFunction(run_on_worker_and_fetch_result), callback=callback
+        )
+
 
     def get_nested_backend(self):
         """Backend instance to be used by nested Parallel calls.
