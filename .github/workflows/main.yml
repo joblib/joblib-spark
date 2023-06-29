@@ -25,11 +25,7 @@ jobs:
       - name: Install python packages
         run: |
           pip install joblib>=0.14.0 scikit-learn>=0.23.1 pytest pylint
-          if [ "${{ matrix.PYSPARK_VERSION }}" = "3.4.0" ]; then
-              pip install https://dist.apache.org/repos/dist/dev/spark/v3.4.0-rc1-bin/pyspark-3.4.0.tar.gz
-          else
-              pip install pyspark==${{ matrix.PYSPARK_VERSION }}
-          fi;
+          pip install pyspark==${{ matrix.PYSPARK_VERSION }}
       - name: Run pylint
         run: |
           ./run-pylint.sh
