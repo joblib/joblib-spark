@@ -209,6 +209,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             pass
 
         if SafeFunction is None:
+            # pylint: disable=protected-access,used-before-assignment
             return self._get_pool().apply_async(
                 PoolManagerMixin._wrap_func_call, (run_on_worker_and_fetch_result,),
                 callback=callback, error_callback=callback
