@@ -30,6 +30,7 @@ try:
     from joblib._parallel_backends import SafeFunction
 except ImportError:
     # joblib >= 1.3.0
+    from joblib._parallel_backends import PoolManagerMixin
     SafeFunction = None
 
 from py4j.clientserver import ClientServer
@@ -209,7 +210,8 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
 
         if SafeFunction is None:
             return self._get_pool().apply_async(
-                run_on_worker_and_fetch_result, callback=callback
+                PoolManagerMixin._wrap_func_call, (run_on_worker_and_fetch_result,),
+                callback=callback, error_callback=callback
             )
 
         return self._get_pool().apply_async(
