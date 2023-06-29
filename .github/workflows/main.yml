@@ -6,7 +6,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        PYTHON_VERSION: ["3.7", "3.8", "3.9", "3.10"]
+        PYTHON_VERSION: ["3.8", "3.10"]
+        JOBLIB_VERSION: ["1.2.0", "1.3.0"]
         PIN_MODE: [false, true]
         PYSPARK_VERSION: ["3.0.3", "3.1.3", "3.2.3", "3.3.2", "3.4.0"]
         exclude:
@@ -14,7 +15,7 @@ jobs:
             PIN_MODE: true
           - PYSPARK_VERSION: "3.1.3"
             PIN_MODE: true
-    name: Run test on pyspark ${{ matrix.PYSPARK_VERSION }}, pin_mode ${{ matrix.PIN_MODE }}, python ${{ matrix.PYTHON_VERSION }}
+    name: Run test on pyspark ${{ matrix.PYSPARK_VERSION }}, pin_mode ${{ matrix.PIN_MODE }}, python ${{ matrix.PYTHON_VERSION }}, joblib ${{ matrix.JOBLIB_VERSION }}
     steps:
       - uses: actions/checkout@v3
       - name: Setup python ${{ matrix.PYTHON_VERSION }}
@@ -24,7 +25,7 @@ jobs:
           architecture: x64
       - name: Install python packages
         run: |
-          pip install joblib>=0.14.0 scikit-learn>=0.23.1 pytest pylint
+          pip install joblib==${{ matrix.JOBLIB_VERSION }} scikit-learn>=0.23.1 pytest pylint
           pip install pyspark==${{ matrix.PYSPARK_VERSION }}
       - name: Run pylint
         run: |
