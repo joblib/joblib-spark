@@ -25,7 +25,13 @@ from packaging.version import Version, parse
 
 from joblib.parallel \
     import AutoBatchingMixin, ParallelBackendBase, register_parallel_backend, SequentialBackend
-from joblib._parallel_backends import SafeFunction
+
+try:
+    from joblib._parallel_backends import SafeFunction
+except ImportError:
+    # joblib >= 1.3.0
+    from joblib._parallel_backends import PoolManagerMixin
+    SafeFunction = None
 
 from py4j.clientserver import ClientServer
 
@@ -202,10 +208,17 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         except ImportError:
             pass
 
+        if SafeFunction is None:
+            # pylint: disable=protected-access,used-before-assignment
+            return self._get_pool().apply_async(
+                PoolManagerMixin._wrap_func_call, (run_on_worker_and_fetch_result,),
+                callback=callback, error_callback=callback
+            )
+
         return self._get_pool().apply_async(
-            SafeFunction(run_on_worker_and_fetch_result),
-            callback=callback
+            SafeFunction(run_on_worker_and_fetch_result), callback=callback
         )
+
 
     def get_nested_backend(self):
         """Backend instance to be used by nested Parallel calls.
