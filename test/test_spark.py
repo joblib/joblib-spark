@@ -31,6 +31,8 @@ from sklearn.model_selection import cross_val_score
 from sklearn import datasets
 from sklearn import svm
 
+from pyspark.sql import SparkSession
+
 register_spark()
 
 
@@ -54,47 +56,64 @@ def test_simple():
                            for i in range(10))
 
 
-def test_sklearn_cv():
-    iris = datasets.load_iris()
-    clf = svm.SVC(kernel='linear', C=1)
-    with parallel_backend('spark', n_jobs=3):
-        scores = cross_val_score(clf, iris.data, iris.target, cv=5)
+class TestSparkCluster:
+    spark = None
+    @classmethod
+    def setup_class(cls):
+        cls.num_cpus_per_spark_task = 1
+        cls.num_gpus_per_spark_task = 1
 
-    expected = [0.97, 1.0, 0.97, 0.97, 1.0]
+        cls.spark = (
+            SparkSession.builder.master("local-cluster[1, 2, 1024]")
+                .config("spark.task.cpus", "1")
+                .config("spark.task.maxFailures", "1")
+                .getOrCreate()
+        )
 
-    for i in range(5):
-        assert(pytest.approx(scores[i], 0.01) == expected[i])
+    @classmethod
+    def teardown_class(cls):
+        cls.spark.stop()
 
-    # test with default n_jobs=-1
-    with parallel_backend('spark'):
-        scores = cross_val_score(clf, iris.data, iris.target, cv=5)
+    def test_sklearn_cv(self):
+        iris = datasets.load_iris()
+        clf = svm.SVC(kernel='linear', C=1)
+        with parallel_backend('spark', n_jobs=3):
+            scores = cross_val_score(clf, iris.data, iris.target, cv=5)
 
-    for i in range(5):
-        assert(pytest.approx(scores[i], 0.01) == expected[i])
+        expected = [0.97, 1.0, 0.97, 0.97, 1.0]
 
+        for i in range(5):
+            assert(pytest.approx(scores[i], 0.01) == expected[i])
 
-def test_job_cancelling():
-    from joblib import Parallel, delayed
-    import time
-    import tempfile
-    import os
+        # test with default n_jobs=-1
+        with parallel_backend('spark'):
+            scores = cross_val_score(clf, iris.data, iris.target, cv=5)
 
-    tmp_dir = tempfile.mkdtemp()
+        for i in range(5):
+            assert(pytest.approx(scores[i], 0.01) == expected[i])
 
-    def test_fn(x):
-        if x == 0:
-            # make the task-0 fail, then it will cause task 1/2/3 to be canceled.
-            raise RuntimeError()
-        else:
-            time.sleep(15)
-            # if the task finished successfully, it will write a flag file to tmp dir.
-            with open(os.path.join(tmp_dir, str(x)), 'w'):
-                pass
+    def test_job_cancelling(self):
+        from joblib import Parallel, delayed
+        import time
+        import tempfile
+        import os
 
-    with pytest.raises(Exception):
-        with parallel_backend('spark', n_jobs=2):
-            Parallel()(delayed(test_fn)(i) for i in range(2))
+        tmp_dir = tempfile.mkdtemp()
 
-    time.sleep(30)  # wait until we can ensure all task finish or cancelled.
-    # assert all jobs was cancelled, no flag file will be written to tmp dir.
-    assert len(os.listdir(tmp_dir)) == 0
+        def test_fn(x):
+            if x == 0:
+                # make the task-0 fail, then it will cause task 1/2/3 to be canceled.
+                raise RuntimeError()
+            else:
+                time.sleep(15)
+                # if the task finished successfully, it will write a flag file to tmp dir.
+                with open(os.path.join(tmp_dir, str(x)), 'w'):
+                    pass
+
+        with pytest.raises(Exception):
+            with parallel_backend('spark', n_jobs=2):
+                Parallel()(delayed(test_fn)(i) for i in range(2))
+
+        time.sleep(30)  # wait until we can ensure all task finish or cancelled.
+        # assert all jobs was cancelled, no flag file will be written to tmp dir.
+        assert len(os.listdir(tmp_dir)) == 0
