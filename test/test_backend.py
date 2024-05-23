@@ -18,3 +18,9 @@ def test_effective_n_jobs():
         warnings.simplefilter("always")
         assert backend.effective_n_jobs(n_jobs=16) == 16
         assert len(w) == 1
+
+
+def test_resource_profile_supported(self):
+    backend = SparkDistributedBackend()
+    # The test fixture uses a local (standalone) Spark instance, which doesn't support stage-level scheduling.
+    assert backend._spark_supports_resource_profile == False

@@ -71,7 +71,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
     by `SequentialBackend`
     """
 
-    def __init__(self, **backend_args):
+    def __init__(self, resource_profile=None, **backend_args):
         # pylint: disable=super-with-arguments
         super(SparkDistributedBackend, self).__init__(**backend_args)
         self._pool = None
@@ -95,6 +95,18 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             self._ipython = get_ipython()
         except ImportError:
             self._ipython = None
+        self._spark_supports_resource_profile = hasattr(
+            self._spark_context.parallelize([1]), "withResources"
+        ) and not self._spark.conf.get("spark.master", "").startswith("local")
+        if self._spark_supports_resource_profile:
+            self._resource_profile = resource_profile
+        else:
+            self._resource_profile = None
+            if resource_profile is not None:
+                warnings.warn(
+                    "Joblib-spark was constructed with a ResourceProfile, but this Apache "
+                    "Spark version does not support stage-level scheduling."
+                )
 
     def _cancel_all_jobs(self):
         self._is_running = False
@@ -178,6 +190,8 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
 
             # TODO: handle possible spark exception here. # pylint: disable=fixme
             worker_rdd = self._spark.sparkContext.parallelize([0], 1)
+            if self._resource_profile:
+                worker_rdd = worker_rdd.withResources(self._resource_profile)
             def mapper_fn(_):
                 return cloudpickle.dumps(func())
             if self._spark_supports_job_cancelling:
