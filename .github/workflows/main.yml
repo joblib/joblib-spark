@@ -6,17 +6,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        PYTHON_VERSION: ["3.10", "3.11", "3.12"]
+        PYTHON_VERSION: ["3.10"]
         JOBLIB_VERSION: ["1.2.0", "1.3.0"]
         PIN_MODE: [false, true]
         PYSPARK_VERSION: ["3.0.3", "3.1.3", "3.2.3", "3.3.2", "3.4.0"]
+        include:
+          - PYSPARK_VERSION: "3.4.0"
+            PYTHON_VERSION: "3.11"
+          - PYSPARK_VERSION: "3.4.0"
+              PYTHON_VERSION: "3.12"
         exclude:
           - PYSPARK_VERSION: "3.0.3"
             PIN_MODE: true
           - PYSPARK_VERSION: "3.1.3"
             PIN_MODE: true
-          - PYTHON_VERSION: ["3.11", "3.12"]
-            PYSPARK_VERSION: ["3.0.3", "3.1.3", "3.2.3", "3.3.2"]
     name: Run test on pyspark ${{ matrix.PYSPARK_VERSION }}, pin_mode ${{ matrix.PIN_MODE }}, python ${{ matrix.PYTHON_VERSION }}, joblib ${{ matrix.JOBLIB_VERSION }}
     steps:
       - uses: actions/checkout@v3
