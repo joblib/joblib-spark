@@ -14,7 +14,7 @@ jobs:
           - PYSPARK_VERSION: "3.4.0"
             PYTHON_VERSION: "3.11"
           - PYSPARK_VERSION: "3.4.0"
-              PYTHON_VERSION: "3.12"
+            PYTHON_VERSION: "3.12"
         exclude:
           - PYSPARK_VERSION: "3.0.3"
             PIN_MODE: true
