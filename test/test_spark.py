@@ -54,7 +54,7 @@ class TestSparkCluster:
     def teardown_class(cls):
         cls.spark.stop()
 
-    def test_simple():
+    def test_simple(self):
         def inc(x):
             return x + 1
 
