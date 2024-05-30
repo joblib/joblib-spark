@@ -45,7 +45,7 @@ def create_resource_profile(num_cpus_per_spark_task, num_gpus_per_spark_task):
     :return: Spark ResourceProfile
     """
     resource_profile = None
-    if Version(pyspark.__version__).release > (3, 1, 0):
+    if Version(pyspark.__version__).release >= (3, 4, 0):
         try:
             from pyspark.resource.profile import ResourceProfileBuilder
             from pyspark.resource.requests import TaskResourceRequests
