@@ -34,6 +34,7 @@ from sklearn import datasets
 from sklearn import svm
 
 from pyspark.sql import SparkSession
+import pyspark
 
 register_spark()
 
@@ -116,6 +117,8 @@ class TestSparkCluster(unittest.TestCase):
         assert len(os.listdir(tmp_dir)) == 0
 
 
+@unittest.skipIf(Version(pyspark.__version__).release < (3, 4, 0),
+                 "Resource group is only supported since spark 3.4.0")
 class TestGPUSparkCluster(unittest.TestCase):
     @classmethod
     def setup_class(cls):
