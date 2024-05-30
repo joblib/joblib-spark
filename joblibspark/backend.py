@@ -36,7 +36,6 @@ except ImportError:
 from py4j.clientserver import ClientServer
 
 import pyspark
-from pyspark.sql import SparkSession
 from pyspark import cloudpickle
 from pyspark.util import VersionUtils
 
