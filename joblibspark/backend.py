@@ -23,13 +23,15 @@ from multiprocessing.pool import ThreadPool
 import uuid
 from packaging.version import Version, parse
 
+import joblib
 from joblib.parallel \
     import AutoBatchingMixin, ParallelBackendBase, register_parallel_backend, SequentialBackend
 
-try:
+if parse(joblib.__version__) >= Version('1.4.0'):
+    from joblib._utils import _TracebackCapturingWrapper as SafeFunction
+elif parse(joblib.__version__) < Version('1.3.0'):
     from joblib._parallel_backends import SafeFunction
-except ImportError:
-    # joblib >= 1.3.0
+else:
     from joblib._parallel_backends import PoolManagerMixin
     SafeFunction = None
 
@@ -216,7 +218,8 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             )
 
         return self._get_pool().apply_async(
-            SafeFunction(run_on_worker_and_fetch_result), callback=callback
+            SafeFunction(run_on_worker_and_fetch_result),
+            callback=callback, error_callback=callback
         )
 
 
