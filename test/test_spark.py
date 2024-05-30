@@ -73,7 +73,6 @@ class TestSparkCluster:
             Parallel(n_jobs=5)(delayed(slow_raise_value_error)(i == 3)
                                for i in range(10))
 
-
     def test_sklearn_cv(self):
         iris = datasets.load_iris()
         clf = svm.SVC(kernel='linear', C=1)
@@ -92,8 +91,7 @@ class TestSparkCluster:
         for i in range(5):
             assert(pytest.approx(scores[i], 0.01) == expected[i])
 
-
-    def test_job_cancelling():
+    def test_job_cancelling(self):
         from joblib import Parallel, delayed
         import time
         import tempfile
