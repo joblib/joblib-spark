@@ -40,6 +40,7 @@ from pyspark.sql import SparkSession
 from pyspark import cloudpickle
 from pyspark.util import VersionUtils
 
+from .utils import get_spark_session
 
 def register():
     """
@@ -72,10 +73,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         super(SparkDistributedBackend, self).__init__(**backend_args)
         self._pool = None
         self._n_jobs = None
-        self._spark = SparkSession \
-            .builder \
-            .appName("JoblibSparkBackend") \
-            .getOrCreate()
+        self._spark = get_spark_session()
         self._spark_context = self._spark.sparkContext
         self._job_group = "joblib-spark-job-group-" + str(uuid.uuid4())
         self._spark_pinned_threads_enabled = isinstance(
