@@ -36,10 +36,6 @@ from pyspark.sql import SparkSession
 register_spark()
 
 
-def inc(x):
-    return x + 1
-
-
 def slow_raise_value_error(condition, duration=0.05):
     sleep(duration)
     if condition:
@@ -65,6 +61,9 @@ class TestSparkCluster:
         cls.spark.stop()
 
     def test_simple(self):
+        def inc(x):
+            return x + 1
+    
         with parallel_backend('spark') as (ba, _):
             seq = Parallel(n_jobs=5)(delayed(inc)(i) for i in range(10))
             assert seq == [inc(i) for i in range(10)]
