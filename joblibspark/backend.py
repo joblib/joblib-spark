@@ -23,17 +23,19 @@ from multiprocessing.pool import ThreadPool
 import uuid
 from packaging.version import Version, parse
 
-import joblib
 from joblib.parallel \
     import AutoBatchingMixin, ParallelBackendBase, register_parallel_backend, SequentialBackend
 
-if parse(joblib.__version__) >= Version('1.4.0'):
+try:
+    # joblib >=1.4.0
     from joblib._utils import _TracebackCapturingWrapper as SafeFunction
-elif parse(joblib.__version__) < Version('1.3.0'):
-    from joblib._parallel_backends import SafeFunction
-else:
-    from joblib._parallel_backends import PoolManagerMixin
-    SafeFunction = None
+except ImportError:
+    try:
+        from joblib._parallel_backends import SafeFunction
+    except ImportError:
+        # joblib >= 1.3.0
+        from joblib._parallel_backends import PoolManagerMixin
+        SafeFunction = None
 
 from py4j.clientserver import ClientServer
 
