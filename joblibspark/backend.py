@@ -27,11 +27,15 @@ from joblib.parallel \
     import AutoBatchingMixin, ParallelBackendBase, register_parallel_backend, SequentialBackend
 
 try:
-    from joblib._parallel_backends import SafeFunction
+    # joblib >=1.4.0
+    from joblib._utils import _TracebackCapturingWrapper as SafeFunction
 except ImportError:
-    # joblib >= 1.3.0
-    from joblib._parallel_backends import PoolManagerMixin
-    SafeFunction = None
+    try:
+        from joblib._parallel_backends import SafeFunction
+    except ImportError:
+        # joblib >= 1.3.0
+        from joblib._parallel_backends import PoolManagerMixin
+        SafeFunction = None
 
 from py4j.clientserver import ClientServer
 
@@ -216,7 +220,8 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             )
 
         return self._get_pool().apply_async(
-            SafeFunction(run_on_worker_and_fetch_result), callback=callback
+            SafeFunction(run_on_worker_and_fetch_result),
+            callback=callback, error_callback=callback
         )
 
 
