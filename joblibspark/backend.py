@@ -21,6 +21,7 @@ import atexit
 import warnings
 from multiprocessing.pool import ThreadPool
 import uuid
+from typing import Optional
 from packaging.version import Version, parse
 
 from joblib.parallel \
@@ -40,9 +41,10 @@ except ImportError:
 from py4j.clientserver import ClientServer
 
 import pyspark
-from pyspark.sql import SparkSession
 from pyspark import cloudpickle
 from pyspark.util import VersionUtils
+
+from .utils import create_resource_profile, get_spark_session
 
 
 def register():
@@ -71,15 +73,15 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
     by `SequentialBackend`
     """
 
-    def __init__(self, **backend_args):
+    def __init__(self,
+                 num_cpus_per_spark_task: Optional[int] = None,
+                 num_gpus_per_spark_task: Optional[int] = None,
+                 **backend_args):
         # pylint: disable=super-with-arguments
         super(SparkDistributedBackend, self).__init__(**backend_args)
         self._pool = None
         self._n_jobs = None
-        self._spark = SparkSession \
-            .builder \
-            .appName("JoblibSparkBackend") \
-            .getOrCreate()
+        self._spark = get_spark_session()
         self._spark_context = self._spark.sparkContext
         self._job_group = "joblib-spark-job-group-" + str(uuid.uuid4())
         self._spark_pinned_threads_enabled = isinstance(
@@ -95,6 +97,40 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             self._ipython = get_ipython()
         except ImportError:
             self._ipython = None
+
+        self._support_stage_scheduling = self._is_support_stage_scheduling()
+        self._resource_profile = self._create_resource_profile(num_cpus_per_spark_task,
+                                                               num_gpus_per_spark_task)
+
+    def _is_support_stage_scheduling(self):
+        spark_master = self._spark_context.master
+        is_spark_local_mode = spark_master == "local" or spark_master.startswith("local[")
+        if is_spark_local_mode:
+            support_stage_scheduling = False
+            warnings.warn("Spark local mode doesn't support stage-level scheduling.")
+        else:
+            support_stage_scheduling = hasattr(
+                self._spark_context.parallelize([1]), "withResources"
+            )
+            warnings.warn("Spark version does not support stage-level scheduling.")
+        return support_stage_scheduling
+
+    def _create_resource_profile(self,
+                                 num_cpus_per_spark_task,
+                                 num_gpus_per_spark_task) -> Optional[object]:
+        resource_profile = None
+        if self._support_stage_scheduling:
+            self.using_stage_scheduling = True
+
+            default_cpus_per_task = int(self._spark.conf.get("spark.task.cpus", "1"))
+            default_gpus_per_task = int(self._spark.conf.get("spark.task.resource.gpu.amount", "0"))
+            num_cpus_per_spark_task = num_cpus_per_spark_task or default_cpus_per_task
+            num_gpus_per_spark_task = num_gpus_per_spark_task or default_gpus_per_task
+
+            resource_profile = create_resource_profile(num_cpus_per_spark_task,
+                                                       num_gpus_per_spark_task)
+
+        return resource_profile
 
     def _cancel_all_jobs(self):
         self._is_running = False
@@ -178,6 +214,8 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
 
             # TODO: handle possible spark exception here. # pylint: disable=fixme
             worker_rdd = self._spark.sparkContext.parallelize([0], 1)
+            if self._resource_profile:
+                worker_rdd = worker_rdd.withResources(self._resource_profile)
             def mapper_fn(_):
                 return cloudpickle.dumps(func())
             if self._spark_supports_job_cancelling:
