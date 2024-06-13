@@ -24,7 +24,7 @@ from test.test_spark import JoblibsparkTest
 class TestsOnSparkConnect(JoblibsparkTest, unittest.TestCase):
 
     def setUp(self) -> None:
-        self.spark = SparkSession.builder.remote("sc://localhost").getOrCreate()
+        self.spark = SparkSession.builder.remote("local[2]").getOrCreate()
 
     def tearDown(self) -> None:
         self.spark.stop()
