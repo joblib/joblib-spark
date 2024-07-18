@@ -20,8 +20,8 @@ jobs:
           architecture: x64
       - name: Install python packages
         run: |
-          pip install joblib==${{ matrix.JOBLIB_VERSION }} scikit-learn>=0.23.1 pytest pylint 
-          pip install setuptools 'numpy==1.25.1' 'pyarrow==12.0.1' 'pandas<=2.0.3'
+          pip install setuptools joblib==${{ matrix.JOBLIB_VERSION }} scikit-learn>=0.23.1 pytest pylint 
+          pip install 'numpy==1.25.1' 'pyarrow==12.0.1' 'pandas<=2.0.3'
           # Add Python deps for Spark Connect.
           pip install 'grpcio>=1.48,<1.57' 'grpcio-status>=1.48,<1.57' 'protobuf==3.20.3' 'googleapis-common-protos==1.56.4'
           pip install "pyspark[connect]==${{ matrix.PYSPARK_VERSION }}"
