@@ -39,21 +39,7 @@ import pyspark
 register_spark()
 
 
-class TestSparkCluster(unittest.TestCase):
-    spark = None
-
-    @classmethod
-    def setup_class(cls):
-        cls.spark = (
-            SparkSession.builder.master("local-cluster[1, 2, 1024]")
-                .config("spark.task.cpus", "1")
-                .config("spark.task.maxFailures", "1")
-                .getOrCreate()
-        )
-
-    @classmethod
-    def teardown_class(cls):
-        cls.spark.stop()
+class JoblibsparkTest:
 
     def test_simple(self):
         def inc(x):
@@ -116,6 +102,18 @@ class TestSparkCluster(unittest.TestCase):
         # assert all jobs was cancelled, no flag file will be written to tmp dir.
         assert len(os.listdir(tmp_dir)) == 0
 
+
+class TestSparkCluster(JoblibsparkTest, unittest.TestCase):
+    def setUp(self):
+        self.spark = (
+            SparkSession.builder.master("local-cluster[1, 2, 1024]")
+            .config("spark.task.cpus", "1")
+            .config("spark.task.maxFailures", "1")
+            .getOrCreate()
+        )
+
+    def tearDown(self):
+        self.spark.stop()
 
 @unittest.skipIf(Version(pyspark.__version__).release < (3, 4, 0),
                  "Resource group is only supported since spark 3.4.0")
