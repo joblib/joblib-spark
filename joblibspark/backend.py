@@ -77,20 +77,14 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                  num_cpus_per_spark_task: Optional[int] = None,
                  num_gpus_per_spark_task: Optional[int] = None,
                  **backend_args):
+        from pyspark.sql.utils import is_remote
+
         # pylint: disable=super-with-arguments
         super(SparkDistributedBackend, self).__init__(**backend_args)
         self._pool = None
         self._n_jobs = None
         self._spark = get_spark_session()
-        self._spark_context = self._spark.sparkContext
         self._job_group = "joblib-spark-job-group-" + str(uuid.uuid4())
-        self._spark_pinned_threads_enabled = isinstance(
-            self._spark_context._gateway, ClientServer
-        )
-        self._spark_supports_job_cancelling = (
-            self._spark_pinned_threads_enabled
-            or hasattr(self._spark_context.parallelize([1]), "collectWithJobGroup")
-        )
         self._is_running = False
         try:
             from IPython import get_ipython  # pylint: disable=import-outside-toplevel
@@ -98,7 +92,21 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         except ImportError:
             self._ipython = None
 
-        self._support_stage_scheduling = self._is_support_stage_scheduling()
+        self._is_spark_connect_mode = is_remote()
+        if self._is_spark_connect_mode:
+            self._support_stage_scheduling = Version(pyspark.__version__).major >= 4
+            self._spark_supports_job_cancelling = Version(pyspark.__version__) >= Version("3.5")
+        else:
+            self._spark_context = self._spark.sparkContext
+            self._spark_pinned_threads_enabled = isinstance(
+                self._spark_context._gateway, ClientServer
+            )
+            self._spark_supports_job_cancelling = (
+                self._spark_pinned_threads_enabled
+                or hasattr(self._spark_context.parallelize([1]), "collectWithJobGroup")
+            )
+            self._support_stage_scheduling = self._is_support_stage_scheduling()
+
         self._resource_profile = self._create_resource_profile(num_cpus_per_spark_task,
                                                                num_gpus_per_spark_task)
 
@@ -135,26 +143,48 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
     def _cancel_all_jobs(self):
         self._is_running = False
         if not self._spark_supports_job_cancelling:
-            # Note: There's bug existing in `sparkContext.cancelJobGroup`.
-            # See https://issues.apache.org/jira/browse/SPARK-31549
-            warnings.warn("For spark version < 3, pyspark cancelling job API has bugs, "
-                          "so we could not terminate running spark jobs correctly. "
-                          "See https://issues.apache.org/jira/browse/SPARK-31549 for reference.")
+            if self._is_spark_connect_mode:
+                warnings.warn("Spark connect does not support job cancellation API "
+                              "for Spark version < 3.5")
+            else:
+                # Note: There's bug existing in `sparkContext.cancelJobGroup`.
+                # See https://issues.apache.org/jira/browse/SPARK-31549
+                warnings.warn("For spark version < 3, pyspark cancelling job API has bugs, "
+                              "so we could not terminate running spark jobs correctly. "
+                              "See https://issues.apache.org/jira/browse/SPARK-31549 for reference.")
         else:
-            self._spark.sparkContext.cancelJobGroup(self._job_group)
+            if self._is_spark_connect_mode:
+                self._spark.interruptTag(self._job_group)
+            else:
+                self._spark.sparkContext.cancelJobGroup(self._job_group)
 
     def effective_n_jobs(self, n_jobs):
-        max_num_concurrent_tasks = self._get_max_num_concurrent_tasks()
         if n_jobs is None:
             n_jobs = 1
-        elif n_jobs == -1:
-            # n_jobs=-1 means requesting all available workers
-            n_jobs = max_num_concurrent_tasks
-        if n_jobs > max_num_concurrent_tasks:
-            warnings.warn(f"User-specified n_jobs ({n_jobs}) is greater than the max number of "
-                          f"concurrent tasks ({max_num_concurrent_tasks}) this cluster can run now."
-                          "If dynamic allocation is enabled for the cluster, you might see more "
-                          "executors allocated.")
+
+        if self._is_spark_connect_mode:
+            if n_jobs == 1:
+                warnings.warn(
+                    "The maximum number of concurrently running jobs is set to 1, "
+                    "to increase concurrency, you need to set joblib spark backend "
+                    "'n_jobs' param to a greater number."
+                )
+
+            if n_jobs == -1:
+                raise RuntimeError(
+                    "In Spark connect mode, Joblib spark backend can't support setting "
+                    "'n_jobs' to -1."
+                )
+        else:
+            max_num_concurrent_tasks = self._get_max_num_concurrent_tasks()
+            if n_jobs == -1:
+                # n_jobs=-1 means requesting all available workers
+                n_jobs = max_num_concurrent_tasks
+            if n_jobs > max_num_concurrent_tasks:
+                warnings.warn(f"User-specified n_jobs ({n_jobs}) is greater than the max number of "
+                              f"concurrent tasks ({max_num_concurrent_tasks}) this cluster can run now."
+                              "If dynamic allocation is enabled for the cluster, you might see more "
+                              "executors allocated.")
         return n_jobs
 
     def _get_max_num_concurrent_tasks(self):
@@ -213,32 +243,55 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                 raise RuntimeError('The task is canceled due to ipython command canceled.')
 
             # TODO: handle possible spark exception here. # pylint: disable=fixme
-            worker_rdd = self._spark.sparkContext.parallelize([0], 1)
-            if self._resource_profile:
-                worker_rdd = worker_rdd.withResources(self._resource_profile)
-            def mapper_fn(_):
-                return cloudpickle.dumps(func())
-            if self._spark_supports_job_cancelling:
-                if self._spark_pinned_threads_enabled:
-                    self._spark.sparkContext.setLocalProperty(
-                        "spark.jobGroup.id",
-                        self._job_group
-                    )
-                    self._spark.sparkContext.setLocalProperty(
-                        "spark.job.description",
-                        "joblib spark jobs"
-                    )
-                    rdd = worker_rdd.map(mapper_fn)
-                    ser_res = rdd.collect()[0]
+            if self._is_spark_connect_mode:
+                spark_df = self._spark.range(1, numPartitions=1)
+
+                def mapper_fn(iterator):
+                    import pandas as pd
+
+                    for _ in iterator:  # consume input data.
+                        pass
+
+                    result = cloudpickle.dumps(func())
+                    pd.DataFrame({"result": [result]})
+
+                if self._spark_supports_job_cancelling:
+                    self._spark.addTag(self._job_group)
+
+                ser_res = spark_df.mapInPandas(
+                    mapper_fn,
+                    schema="result binary",
+                    profile=self._resource_profile,
+                ).collect()[0].result
+            else:
+                worker_rdd = self._spark.sparkContext.parallelize([0], 1)
+                if self._resource_profile:
+                    worker_rdd = worker_rdd.withResources(self._resource_profile)
+
+                def mapper_fn(_):
+                    return cloudpickle.dumps(func())
+
+                if self._spark_supports_job_cancelling:
+                    if self._spark_pinned_threads_enabled:
+                        self._spark.sparkContext.setLocalProperty(
+                            "spark.jobGroup.id",
+                            self._job_group
+                        )
+                        self._spark.sparkContext.setLocalProperty(
+                            "spark.job.description",
+                            "joblib spark jobs"
+                        )
+                        rdd = worker_rdd.map(mapper_fn)
+                        ser_res = rdd.collect()[0]
+                    else:
+                        rdd = worker_rdd.map(mapper_fn)
+                        ser_res = rdd.collectWithJobGroup(
+                            self._job_group,
+                            "joblib spark jobs"
+                        )[0]
                 else:
                     rdd = worker_rdd.map(mapper_fn)
-                    ser_res = rdd.collectWithJobGroup(
-                        self._job_group,
-                        "joblib spark jobs"
-                    )[0]
-            else:
-                rdd = worker_rdd.map(mapper_fn)
-                ser_res = rdd.collect()[0]
+                    ser_res = rdd.collect()[0]
 
             return cloudpickle.loads(ser_res)
 
