@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import logging
 from time import sleep
 import pytest
 import os
@@ -36,6 +37,9 @@ from sklearn import svm
 from pyspark.sql import SparkSession
 import pyspark
 
+_logger = logging.getLogger("Test")
+_logger.setLevel(logging.INFO)
+
 register_spark()
 
 
@@ -44,12 +48,26 @@ class TestSparkCluster(unittest.TestCase):
 
     @classmethod
     def setup_class(cls):
-        cls.spark = (
-            SparkSession.builder.master("local-cluster[1, 2, 1024]")
-                .config("spark.task.cpus", "1")
-                .config("spark.task.maxFailures", "1")
-                .getOrCreate()
-        )
+        spark_version = os.environ["PYSPARK_VERSION"]
+        if os.environ["SPARK_CONNECT_MODE"].lower() == "true":
+            _logger.info("Test with spark connect mode.")
+            cls.spark = (
+                SparkSession.builder.config(
+                    "spark.jars.packages", f"org.apache.spark:spark-connect_2.12:{spark_version}"
+                )
+                    .config("spark.task.cpus", "1")
+                    .config("spark.task.maxFailures", "1")
+                    .remote("local[2]")  # Adjust the remote address if necessary
+                    .appName(cls.__name__)
+                    .getOrCreate()
+            )
+        else:
+            cls.spark = (
+                SparkSession.builder.master("local-cluster[1, 2, 1024]")
+                    .config("spark.task.cpus", "1")
+                    .config("spark.task.maxFailures", "1")
+                    .getOrCreate()
+            )
 
     @classmethod
     def teardown_class(cls):

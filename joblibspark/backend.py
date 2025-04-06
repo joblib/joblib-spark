@@ -64,6 +64,9 @@ def register():
 
 
 def is_spark_connect_mode():
+    """
+    Check if running with spark connect mode.
+    """
     try:
         from pyspark.sql.utils import is_remote  # pylint: disable=C0415
         return is_remote()
