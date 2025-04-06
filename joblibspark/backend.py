@@ -121,6 +121,9 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                                                                num_gpus_per_spark_task)
 
     def _is_support_stage_scheduling(self):
+        if self._is_spark_connect_mode:
+            return Version(pyspark.__version__).major >= 4
+
         spark_master = self._spark_context.master
         is_spark_local_mode = spark_master == "local" or spark_master.startswith("local[")
         if is_spark_local_mode:
@@ -264,16 +267,24 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                         pass
 
                     result = cloudpickle.dumps(func())
-                    pd.DataFrame({"result": [result]})
+                    yield pd.DataFrame({"result": [result]})
 
                 if self._spark_supports_job_cancelling:
                     self._spark.addTag(self._job_group)
 
-                ser_res = spark_df.mapInPandas(
-                    mapper_fn,
-                    schema="result binary",
-                    profile=self._resource_profile,
-                ).collect()[0].result
+                if self._support_stage_scheduling:
+                    collected = spark_df.mapInPandas(
+                        mapper_fn,
+                        schema="result binary",
+                        profile=self._resource_profile,
+                    ).collect()
+                else:
+                    collected = spark_df.mapInPandas(
+                        mapper_fn,
+                        schema="result binary",
+                    ).collect()
+                    pass
+                ser_res = bytes(collected[0].result)
             else:
                 worker_rdd = self._spark.sparkContext.parallelize([0], 1)
                 if self._resource_profile:
@@ -309,6 +320,10 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         try:
             # pylint: disable=no-name-in-module,import-outside-toplevel
             from pyspark import inheritable_thread_target
+
+            if Version(pyspark.__version__).major >= 4:
+                inheritable_thread_target = inheritable_thread_target(self._spark)
+
             run_on_worker_and_fetch_result = \
                 inheritable_thread_target(run_on_worker_and_fetch_result)
         except ImportError:

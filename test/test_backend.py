@@ -9,13 +9,26 @@ from pyspark.sql import SparkSession
 
 from joblibspark.backend import SparkDistributedBackend
 
+spark_version = os.environ["PYSPARK_VERSION"]
+
 
 class TestLocalSparkCluster(unittest.TestCase):
     @classmethod
     def setup_class(cls):
-        cls.spark = (
-            SparkSession.builder.master("local[*]").getOrCreate()
-        )
+        if os.environ["SPARK_CONNECT_MODE"].lower() == "true":
+            cls.spark = (
+                SparkSession.builder.config(
+                    "spark.jars.packages",
+                    f"org.apache.spark:spark-connect_2.12:{spark_version}"
+                )
+                    .remote("local[2]")  # Adjust the remote address if necessary
+                    .appName("Test")
+                    .getOrCreate()
+            )
+        else:
+            cls.spark = (
+                SparkSession.builder.master("local[*]").getOrCreate()
+            )
 
     @classmethod
     def teardown_class(cls):

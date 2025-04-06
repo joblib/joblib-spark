@@ -42,30 +42,36 @@ _logger.setLevel(logging.INFO)
 
 register_spark()
 
+spark_version = os.environ["PYSPARK_VERSION"]
+
+is_spark_connect_mode = os.environ["SPARK_CONNECT_MODE"].lower() == "true"
+
 
 class TestSparkCluster(unittest.TestCase):
     spark = None
 
     @classmethod
     def setup_class(cls):
-        spark_version = os.environ["PYSPARK_VERSION"]
+        spark_session_builder = (
+            SparkSession.builder
+                .config("spark.task.cpus", "1")
+                .config("spark.task.maxFailures", "1")
+        )
+
         if os.environ["SPARK_CONNECT_MODE"].lower() == "true":
             _logger.info("Test with spark connect mode.")
             cls.spark = (
-                SparkSession.builder.config(
-                    "spark.jars.packages", f"org.apache.spark:spark-connect_2.12:{spark_version}"
+                spark_session_builder.config(
+                    "spark.jars.packages",
+                    f"org.apache.spark:spark-connect_2.12:{spark_version}"
                 )
-                    .config("spark.task.cpus", "1")
-                    .config("spark.task.maxFailures", "1")
                     .remote("local[2]")  # Adjust the remote address if necessary
-                    .appName(cls.__name__)
+                    .appName("Test")
                     .getOrCreate()
             )
         else:
             cls.spark = (
-                SparkSession.builder.master("local-cluster[1, 2, 1024]")
-                    .config("spark.task.cpus", "1")
-                    .config("spark.task.maxFailures", "1")
+                spark_session_builder.master("local-cluster[1, 2, 1024]")
                     .getOrCreate()
             )
 
@@ -135,8 +141,12 @@ class TestSparkCluster(unittest.TestCase):
         assert len(os.listdir(tmp_dir)) == 0
 
 
-@unittest.skipIf(Version(pyspark.__version__).release < (3, 4, 0),
-                 "Resource group is only supported since spark 3.4.0")
+@unittest.skipIf(
+    (not is_spark_connect_mode and Version(pyspark.__version__).release < (3, 4, 0)) or
+    (is_spark_connect_mode and Version(pyspark.__version__).major < 4),
+    "Resource group is only supported since Spark 3.4.0 for legacy Spark mode or "
+    "since Spark 4 for Spark Connect mode."
+)
 class TestGPUSparkCluster(unittest.TestCase):
     @classmethod
     def setup_class(cls):
@@ -144,19 +154,35 @@ class TestGPUSparkCluster(unittest.TestCase):
             os.path.dirname(os.path.abspath(__file__)), "discover_2_gpu.sh"
         )
 
-        cls.spark = (
-            SparkSession.builder.master("local-cluster[1, 2, 1024]")
-            .config("spark.task.cpus", "1")
-            .config("spark.task.resource.gpu.amount", "1")
-            .config("spark.executor.cores", "2")
-            .config("spark.worker.resource.gpu.amount", "2")
-            .config("spark.executor.resource.gpu.amount", "2")
-            .config("spark.task.maxFailures", "1")
-            .config(
-                "spark.worker.resource.gpu.discoveryScript", gpu_discovery_script_path
-            )
-            .getOrCreate()
+        spark_session_builder = (
+            SparkSession.builder
+                .config("spark.task.cpus", "1")
+                .config("spark.task.resource.gpu.amount", "1")
+                .config("spark.executor.cores", "2")
+                .config("spark.worker.resource.gpu.amount", "2")
+                .config("spark.executor.resource.gpu.amount", "2")
+                .config("spark.task.maxFailures", "1")
+                .config(
+                    "spark.worker.resource.gpu.discoveryScript", gpu_discovery_script_path
+                )
         )
+
+        if os.environ["SPARK_CONNECT_MODE"].lower() == "true":
+            _logger.info("Test with spark connect mode.")
+            cls.spark = (
+                spark_session_builder.config(
+                    "spark.jars.packages",
+                    f"org.apache.spark:spark-connect_2.12:{spark_version}"
+                )
+                    .remote("local[2]")  # Adjust the remote address if necessary
+                    .appName("Test")
+                    .getOrCreate()
+            )
+        else:
+            cls.spark = (
+                spark_session_builder.master("local-cluster[1, 2, 1024]")
+                    .getOrCreate()
+            )
 
     @classmethod
     def teardown_class(cls):
