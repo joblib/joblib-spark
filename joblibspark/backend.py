@@ -23,6 +23,7 @@ from multiprocessing.pool import ThreadPool
 import uuid
 from typing import Optional
 from packaging.version import Version, parse
+import pandas as pd
 
 from joblib.parallel \
     import AutoBatchingMixin, ParallelBackendBase, register_parallel_backend, SequentialBackend
@@ -62,6 +63,14 @@ def register():
     register_parallel_backend('spark', SparkDistributedBackend)
 
 
+def is_spark_connect_mode():
+    try:
+        from pyspark.sql.utils import is_remote  # pylint: disable=C0415
+        return is_remote()
+    except ImportError:
+        return False
+
+
 # pylint: disable=too-many-instance-attributes
 class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
     """A ParallelBackend which will execute all batches on spark.
@@ -77,8 +86,6 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                  num_cpus_per_spark_task: Optional[int] = None,
                  num_gpus_per_spark_task: Optional[int] = None,
                  **backend_args):
-        from pyspark.sql.utils import is_remote
-
         # pylint: disable=super-with-arguments
         super(SparkDistributedBackend, self).__init__(**backend_args)
         self._pool = None
@@ -92,7 +99,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         except ImportError:
             self._ipython = None
 
-        self._is_spark_connect_mode = is_remote()
+        self._is_spark_connect_mode = is_spark_connect_mode()
         if self._is_spark_connect_mode:
             self._support_stage_scheduling = Version(pyspark.__version__).major >= 4
             self._spark_supports_job_cancelling = Version(pyspark.__version__) >= Version("3.5")
@@ -151,7 +158,8 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                 # See https://issues.apache.org/jira/browse/SPARK-31549
                 warnings.warn("For spark version < 3, pyspark cancelling job API has bugs, "
                               "so we could not terminate running spark jobs correctly. "
-                              "See https://issues.apache.org/jira/browse/SPARK-31549 for reference.")
+                              "See https://issues.apache.org/jira/browse/SPARK-31549 for "
+                              "reference.")
         else:
             if self._is_spark_connect_mode:
                 self._spark.interruptTag(self._job_group)
@@ -181,10 +189,12 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                 # n_jobs=-1 means requesting all available workers
                 n_jobs = max_num_concurrent_tasks
             if n_jobs > max_num_concurrent_tasks:
-                warnings.warn(f"User-specified n_jobs ({n_jobs}) is greater than the max number of "
-                              f"concurrent tasks ({max_num_concurrent_tasks}) this cluster can run now."
-                              "If dynamic allocation is enabled for the cluster, you might see more "
-                              "executors allocated.")
+                warnings.warn(
+                    f"User-specified n_jobs ({n_jobs}) is greater than the max number of "
+                    f"concurrent tasks ({max_num_concurrent_tasks}) this cluster can run now."
+                    "If dynamic allocation is enabled for the cluster, you might see more "
+                    "executors allocated."
+                )
         return n_jobs
 
     def _get_max_num_concurrent_tasks(self):
@@ -247,8 +257,6 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                 spark_df = self._spark.range(1, numPartitions=1)
 
                 def mapper_fn(iterator):
-                    import pandas as pd
-
                     for _ in iterator:  # consume input data.
                         pass
 
