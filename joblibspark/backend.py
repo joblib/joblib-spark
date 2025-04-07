@@ -196,6 +196,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
 
             if n_jobs == -1:
                 n_jobs = _DEFAULT_N_JOBS_IN_SPARK_CONNECT_MODE
+                # pylint: disable = logging-fstring-interpolation
                 _logger.warning(
                     "Joblib sets `n_jobs` to default value "
                     f"{_DEFAULT_N_JOBS_IN_SPARK_CONNECT_MODE} in Spark Connect mode."
@@ -274,7 +275,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                 spark_df = self._spark.range(1, numPartitions=1)
 
                 def mapper_fn(iterator):
-                    import pandas as pd
+                    import pandas as pd  # pylint: disable=import-outside-toplevel
                     for _ in iterator:  # consume input data.
                         pass
 
@@ -334,10 +335,10 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             from pyspark import inheritable_thread_target
 
             if Version(pyspark.__version__).major >= 4 and is_spark_connect_mode():
+                # pylint: disable=fixme
                 # TODO: remove this patch once Spark 4.0.0 is released.
                 #  the patch is for propagating the Spark session to current thread.
-                def patched_inheritable_thread_target(f):
-                    from pyspark.sql.utils import is_remote
+                def patched_inheritable_thread_target(f):  # pylint: disable=invalid-name
                     import functools
                     import copy
                     from typing import Any
@@ -345,13 +346,14 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                     session = f
                     assert session is not None, "Spark Connect session must be provided."
 
-                    def outer(ff: Any) -> Any:
+                    def outer(ff: Any) -> Any:  # pylint: disable=invalid-name
                         session_client_thread_local_attrs = [
+                            # type: ignore[union-attr]
                             (attr, copy.deepcopy(value))
                             for (
                                 attr,
                                 value,
-                            ) in session.client.thread_local.__dict__.items()  # type: ignore[union-attr]
+                            ) in session.client.thread_local.__dict__.items()
                         ]
 
                         @functools.wraps(ff)
@@ -359,11 +361,13 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                             # Propagates the active spark session to the current thread
                             from pyspark.sql.connect.session import SparkSession as SCS
 
+                            # pylint: disable=protected-access
                             SCS._set_default_and_active_session(session)
 
                             # Set thread locals in child thread.
                             for attr, value in session_client_thread_local_attrs:
-                                setattr(session.client.thread_local, attr, value)  # type: ignore[union-attr]
+                                # type: ignore[union-attr]
+                                setattr(session.client.thread_local, attr, value)
                             return ff(*args, **kwargs)
 
                         return inner
