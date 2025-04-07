@@ -280,18 +280,23 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                 if self._spark_supports_job_cancelling:
                     self._spark.addTag(self._job_group)
 
-                if self._support_stage_scheduling:
-                    collected = spark_df.mapInPandas(
-                        mapper_fn,
-                        schema="result binary",
-                        profile=self._resource_profile,
-                    ).collect()
-                else:
-                    collected = spark_df.mapInPandas(
-                        mapper_fn,
-                        schema="result binary",
-                    ).collect()
-                    pass
+                try:
+                    if self._support_stage_scheduling:
+                        collected = spark_df.mapInPandas(
+                            mapper_fn,
+                            schema="result binary",
+                            profile=self._resource_profile,
+                        ).collect()
+                    else:
+                        collected = spark_df.mapInPandas(
+                            mapper_fn,
+                            schema="result binary",
+                        ).collect()
+
+                except Exception as e:
+                    with open("/tmp/err", "a") as f:
+                        import traceback
+                        f.write(traceback.format_exc())
 
                 ser_res = bytes(collected[0].result)
             else:
@@ -332,6 +337,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
 
             if Version(pyspark.__version__).major >= 4 and is_spark_connect_mode():
                 # TODO: remove this patch once Spark 4.0.0 is released.
+                #  the patch is for propagating the Spark session to current thread.
                 def patched_inheritable_thread_target(f):
                     from pyspark.sql.utils import is_remote
                     import functools

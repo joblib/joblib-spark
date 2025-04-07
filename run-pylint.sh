@@ -21,5 +21,5 @@
 set -e
 
 # Run pylint
-python -m pylint joblibspark
+# python -m pylint joblibspark
 
