@@ -153,8 +153,15 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         if self._support_stage_scheduling:
             self.using_stage_scheduling = True
 
-            default_cpus_per_task = int(self._spark.conf.get("spark.task.cpus", "1"))
-            default_gpus_per_task = int(self._spark.conf.get("spark.task.resource.gpu.amount", "0"))
+            if is_spark_connect_mode():
+                # In Spark Connect mode, we can't read Spark cluster configures.
+                default_cpus_per_task = 1
+                default_gpus_per_task = 0
+            else:
+                default_cpus_per_task = int(self._spark.conf.get("spark.task.cpus", "1"))
+                default_gpus_per_task = int(
+                    self._spark.conf.get("spark.task.resource.gpu.amount", "0")
+                )
             num_cpus_per_spark_task = num_cpus_per_spark_task or default_cpus_per_task
             num_gpus_per_spark_task = num_gpus_per_spark_task or default_gpus_per_task
 
