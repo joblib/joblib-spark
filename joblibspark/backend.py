@@ -361,7 +361,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                             # Propagates the active spark session to the current thread
                             from pyspark.sql.connect.session import SparkSession as SCS
 
-                            # pylint: disable=protected-access
+                            # pylint: disable=protected-access,no-member
                             SCS._set_default_and_active_session(session)
 
                             # Set thread locals in child thread.
