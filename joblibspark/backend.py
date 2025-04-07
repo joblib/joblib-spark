@@ -110,6 +110,10 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
 
         self._is_spark_connect_mode = is_spark_connect_mode()
         if self._is_spark_connect_mode:
+            if Version(pyspark.__version__).major < 4:
+                raise RuntimeError(
+                    "Joblib spark does not support Spark Connect with PySpark version < 4."
+                )
             self._support_stage_scheduling = True
             self._spark_supports_job_cancelling = True
         else:
