@@ -15,7 +15,7 @@ jobs:
             SPARK_CONNECT_MODE: true
           - PYSPARK_VERSION: "3.5.5"
             SPARK_CONNECT_MODE: true
-    name: Run test on pyspark ${{ matrix.PYSPARK_VERSION }}, python ${{ matrix.PYTHON_VERSION }}, joblib ${{ matrix.JOBLIB_VERSION }}
+    name: Run test on pyspark ${{ matrix.PYSPARK_VERSION }}, Use Spark Connect ${{ matrix.SPARK_CONNECT_MODE }}, joblib ${{ matrix.JOBLIB_VERSION }}
     steps:
       - uses: actions/checkout@v3
       - name: Setup python ${{ matrix.PYTHON_VERSION }}
