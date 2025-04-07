@@ -8,8 +8,13 @@ import pyspark
 from pyspark.sql import SparkSession
 
 from joblibspark.backend import SparkDistributedBackend
+import joblibspark.backend
+
+joblibspark.backend._DEFAULT_N_JOBS_IN_SPARK_CONNECT_MODE = 8
+
 
 spark_version = os.environ["PYSPARK_VERSION"]
+is_spark_connect_mode = os.environ["SPARK_CONNECT_MODE"].lower() == "true"
 
 
 class TestLocalSparkCluster(unittest.TestCase):
@@ -21,7 +26,7 @@ class TestLocalSparkCluster(unittest.TestCase):
                     "spark.jars.packages",
                     f"org.apache.spark:spark-connect_2.12:{spark_version}"
                 )
-                    .remote("local[2]")  # Adjust the remote address if necessary
+                    .remote("local-cluster[1, 2, 1024]")
                     .appName("Test")
                     .getOrCreate()
             )
@@ -36,17 +41,23 @@ class TestLocalSparkCluster(unittest.TestCase):
 
     def test_effective_n_jobs(self):
         backend = SparkDistributedBackend()
-        max_num_concurrent_tasks = 8
-        backend._get_max_num_concurrent_tasks = MagicMock(return_value=max_num_concurrent_tasks)
 
         assert backend.effective_n_jobs(n_jobs=None) == 1
-        assert backend.effective_n_jobs(n_jobs=-1) == 8
         assert backend.effective_n_jobs(n_jobs=4) == 4
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            assert backend.effective_n_jobs(n_jobs=16) == 16
-            assert len(w) == 1
+        if is_spark_connect_mode:
+            assert (
+                backend.effective_n_jobs(n_jobs=-1) ==
+                joblibspark.backend._DEFAULT_N_JOBS_IN_SPARK_CONNECT_MODE
+            )
+        else:
+            max_num_concurrent_tasks = 8
+            backend._get_max_num_concurrent_tasks = MagicMock(return_value=max_num_concurrent_tasks)
+            assert backend.effective_n_jobs(n_jobs=-1) == 8
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                assert backend.effective_n_jobs(n_jobs=16) == 16
+                assert len(w) == 1
 
     def test_resource_profile_supported(self):
         backend = SparkDistributedBackend()

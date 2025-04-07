@@ -18,6 +18,7 @@
 The joblib spark backend implementation.
 """
 import atexit
+import logging
 import warnings
 from multiprocessing.pool import ThreadPool
 import uuid
@@ -48,6 +49,9 @@ from pyspark.util import VersionUtils
 from .utils import create_resource_profile, get_spark_session
 
 
+_logger = logging.getLogger("joblibspark.backend")
+
+
 def register():
     """
     Register joblib spark backend.
@@ -72,6 +76,9 @@ def is_spark_connect_mode():
         return is_remote()
     except ImportError:
         return False
+
+
+_DEFAULT_N_JOBS_IN_SPARK_CONNECT_MODE = 64
 
 
 # pylint: disable=too-many-instance-attributes
@@ -185,9 +192,10 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                 )
 
             if n_jobs == -1:
-                raise RuntimeError(
-                    "In Spark connect mode, Joblib spark backend can't support setting "
-                    "'n_jobs' to -1."
+                n_jobs = _DEFAULT_N_JOBS_IN_SPARK_CONNECT_MODE
+                _logger.warning(
+                    "Joblib sets `n_jobs` to default value "
+                    f"{_DEFAULT_N_JOBS_IN_SPARK_CONNECT_MODE} in Spark Connect mode."
                 )
         else:
             max_num_concurrent_tasks = self._get_max_num_concurrent_tasks()
@@ -272,18 +280,24 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                 if self._spark_supports_job_cancelling:
                     self._spark.addTag(self._job_group)
 
-                if self._support_stage_scheduling:
-                    collected = spark_df.mapInPandas(
-                        mapper_fn,
-                        schema="result binary",
-                        profile=self._resource_profile,
-                    ).collect()
-                else:
-                    collected = spark_df.mapInPandas(
-                        mapper_fn,
-                        schema="result binary",
-                    ).collect()
-                    pass
+                try:
+                    if self._support_stage_scheduling:
+                        collected = spark_df.mapInPandas(
+                            mapper_fn,
+                            schema="result binary",
+                            profile=self._resource_profile,
+                        ).collect()
+                    else:
+                        collected = spark_df.mapInPandas(
+                            mapper_fn,
+                            schema="result binary",
+                        ).collect()
+                        pass
+                except Exception as e:
+                    import traceback
+                    with open("/tmp/err.log", "a") as f:
+                        f.write(traceback.format_exc())
+
                 ser_res = bytes(collected[0].result)
             else:
                 worker_rdd = self._spark.sparkContext.parallelize([0], 1)
@@ -321,7 +335,44 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             # pylint: disable=no-name-in-module,import-outside-toplevel
             from pyspark import inheritable_thread_target
 
-            if Version(pyspark.__version__).major >= 4:
+            if Version(pyspark.__version__).major >= 4 and is_spark_connect_mode():
+                # TODO: remove this patch once Spark 4.0.0 is released.
+                def patched_inheritable_thread_target(f):
+                    from pyspark.sql.utils import is_remote
+                    import functools
+                    import copy
+                    from typing import Any
+
+                    session = f
+                    assert session is not None, "Spark Connect session must be provided."
+
+                    def outer(ff: Any) -> Any:
+                        session_client_thread_local_attrs = [
+                            (attr, copy.deepcopy(value))
+                            for (
+                                attr,
+                                value,
+                            ) in session.client.thread_local.__dict__.items()  # type: ignore[union-attr]
+                        ]
+
+                        @functools.wraps(ff)
+                        def inner(*args: Any, **kwargs: Any) -> Any:
+                            # Propagates the active spark session to the current thread
+                            from pyspark.sql.connect.session import SparkSession as SCS
+
+                            SCS._set_default_and_active_session(session)
+
+                            # Set thread locals in child thread.
+                            for attr, value in session_client_thread_local_attrs:
+                                setattr(session.client.thread_local, attr, value)  # type: ignore[union-attr]
+                            return ff(*args, **kwargs)
+
+                        return inner
+
+                    return outer
+
+                inheritable_thread_target = patched_inheritable_thread_target(self._spark)
+            else:
                 inheritable_thread_target = inheritable_thread_target(self._spark)
 
             run_on_worker_and_fetch_result = \

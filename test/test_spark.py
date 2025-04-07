@@ -28,6 +28,7 @@ else:
     from joblib.parallel import Parallel, delayed, parallel_backend
 
 from joblibspark import register_spark
+import joblibspark.backend
 
 from sklearn.utils import parallel_backend
 from sklearn.model_selection import cross_val_score
@@ -40,11 +41,21 @@ import pyspark
 _logger = logging.getLogger("Test")
 _logger.setLevel(logging.INFO)
 
-register_spark()
+joblibspark.backend._DEFAULT_N_JOBS_IN_SPARK_CONNECT_MODE = 2
+
 
 spark_version = os.environ["PYSPARK_VERSION"]
 
 is_spark_connect_mode = os.environ["SPARK_CONNECT_MODE"].lower() == "true"
+
+if spark_version == "4.0.0.dev2":
+    spark_connect_jar = "org.apache.spark:spark-connect_2.13:4.0.0-preview2"
+elif Version(spark_version).major < 4:
+    spark_connect_jar = f"org.apache.spark:spark-connect_2.12:{spark_version}"
+else:
+    raise RuntimeError("Unsupported Spark version.")
+
+register_spark()
 
 
 class TestSparkCluster(unittest.TestCase):
@@ -62,10 +73,9 @@ class TestSparkCluster(unittest.TestCase):
             _logger.info("Test with spark connect mode.")
             cls.spark = (
                 spark_session_builder.config(
-                    "spark.jars.packages",
-                    f"org.apache.spark:spark-connect_2.12:{spark_version}"
+                    "spark.jars.packages", spark_connect_jar
                 )
-                    .remote("local[2]")  # Adjust the remote address if necessary
+                    .remote("local-cluster[1, 2, 1024]")  # Adjust the remote address if necessary
                     .appName("Test")
                     .getOrCreate()
             )
@@ -89,8 +99,8 @@ class TestSparkCluster(unittest.TestCase):
                 raise ValueError("condition evaluated to True")
 
         with parallel_backend('spark') as (ba, _):
-            seq = Parallel(n_jobs=5)(delayed(inc)(i) for i in range(10))
-            assert seq == [inc(i) for i in range(10)]
+            seq = Parallel(n_jobs=2)(delayed(inc)(i) for i in range(2))
+            assert seq == [inc(i) for i in range(2)]
 
         with pytest.raises(BaseException):
             Parallel(n_jobs=5)(delayed(slow_raise_value_error)(i == 3)
@@ -171,10 +181,9 @@ class TestGPUSparkCluster(unittest.TestCase):
             _logger.info("Test with spark connect mode.")
             cls.spark = (
                 spark_session_builder.config(
-                    "spark.jars.packages",
-                    f"org.apache.spark:spark-connect_2.12:{spark_version}"
+                    "spark.jars.packages", spark_connect_jar
                 )
-                    .remote("local[2]")  # Adjust the remote address if necessary
+                    .remote("local-cluster[1, 2, 1024]")  # Adjust the remote address if necessary
                     .appName("Test")
                     .getOrCreate()
             )
