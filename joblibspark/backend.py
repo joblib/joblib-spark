@@ -334,14 +334,11 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             return cloudpickle.loads(ser_res)
 
         try:
-            # pylint: disable=no-name-in-module,import-outside-toplevel
-            from pyspark import inheritable_thread_target
-
             if Version(pyspark.__version__).major >= 4 and is_spark_connect_mode():
                 # pylint: disable=fixme
                 # TODO: remove this patch once Spark 4.0.0 is released.
                 #  the patch is for propagating the Spark session to current thread.
-                def patched_inheritable_thread_target(f):  # pylint: disable=invalid-name
+                def inheritable_thread_target(f):  # pylint: disable=invalid-name
                     import functools
                     import copy
                     from typing import Any
@@ -377,7 +374,10 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
 
                     return outer
 
-                inheritable_thread_target = patched_inheritable_thread_target(self._spark)
+                inheritable_thread_target = inheritable_thread_target(self._spark)
+            else:
+                # pylint: disable=no-name-in-module,import-outside-toplevel
+                from pyspark import inheritable_thread_target
 
             run_on_worker_and_fetch_result = \
                 inheritable_thread_target(run_on_worker_and_fetch_result)
