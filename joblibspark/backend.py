@@ -24,7 +24,6 @@ from multiprocessing.pool import ThreadPool
 import uuid
 from typing import Optional
 from packaging.version import Version, parse
-import pandas as pd
 
 from joblib.parallel \
     import AutoBatchingMixin, ParallelBackendBase, register_parallel_backend, SequentialBackend
@@ -275,6 +274,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                 spark_df = self._spark.range(1, numPartitions=1)
 
                 def mapper_fn(iterator):
+                    import pandas as pd
                     for _ in iterator:  # consume input data.
                         pass
 

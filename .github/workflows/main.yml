@@ -31,4 +31,4 @@ jobs:
           ./run-pylint.sh
       - name: Run test suites
         run: |
-          SPARK_CONNECT_MODE=${{ matrix.SPARK_CONNECT_MODE }} PYSPARK_VERSION=${{ matrix.PYSPARK_VERSION }} ./run-tests.sh
+          TEST_SPARK_CONNECT=${{ matrix.SPARK_CONNECT_MODE }} PYSPARK_VERSION=${{ matrix.PYSPARK_VERSION }} ./run-tests.sh

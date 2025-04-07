@@ -46,14 +46,12 @@ joblibspark.backend._DEFAULT_N_JOBS_IN_SPARK_CONNECT_MODE = 2
 
 spark_version = os.environ["PYSPARK_VERSION"]
 
-is_spark_connect_mode = os.environ["SPARK_CONNECT_MODE"].lower() == "true"
+is_spark_connect_mode = os.environ["TEST_SPARK_CONNECT"].lower() == "true"
 
-if spark_version == "4.0.0.dev2":
-    spark_connect_jar = "org.apache.spark:spark-connect_2.13:4.0.0-preview2"
-elif Version(spark_version).major < 4:
-    spark_connect_jar = f"org.apache.spark:spark-connect_2.12:{spark_version}"
+if Version(spark_version).major >= 4:
+    spark_connect_jar = ""
 else:
-    raise RuntimeError("Unsupported Spark version.")
+    spark_connect_jar = f"org.apache.spark:spark-connect_2.12:{spark_version}"
 
 register_spark()
 
@@ -69,7 +67,7 @@ class TestSparkCluster(unittest.TestCase):
                 .config("spark.task.maxFailures", "1")
         )
 
-        if os.environ["SPARK_CONNECT_MODE"].lower() == "true":
+        if is_spark_connect_mode:
             _logger.info("Test with spark connect mode.")
             cls.spark = (
                 spark_session_builder.config(
@@ -177,7 +175,7 @@ class TestGPUSparkCluster(unittest.TestCase):
                 )
         )
 
-        if os.environ["SPARK_CONNECT_MODE"].lower() == "true":
+        if is_spark_connect_mode:
             _logger.info("Test with spark connect mode.")
             cls.spark = (
                 spark_session_builder.config(

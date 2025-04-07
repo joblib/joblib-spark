@@ -14,21 +14,19 @@ joblibspark.backend._DEFAULT_N_JOBS_IN_SPARK_CONNECT_MODE = 8
 
 
 spark_version = os.environ["PYSPARK_VERSION"]
-is_spark_connect_mode = os.environ["SPARK_CONNECT_MODE"].lower() == "true"
+is_spark_connect_mode = os.environ["TEST_SPARK_CONNECT"].lower() == "true"
 
 
-if spark_version == "4.0.0.dev2":
-    spark_connect_jar = "org.apache.spark:spark-connect_2.13:4.0.0-preview2"
-elif Version(spark_version).major < 4:
-    spark_connect_jar = f"org.apache.spark:spark-connect_2.12:{spark_version}"
+if Version(spark_version).major >= 4:
+    spark_connect_jar = ""
 else:
-    raise RuntimeError("Unsupported Spark version.")
+    spark_connect_jar = f"org.apache.spark:spark-connect_2.12:{spark_version}"
 
 
 class TestLocalSparkCluster(unittest.TestCase):
     @classmethod
     def setup_class(cls):
-        if os.environ["SPARK_CONNECT_MODE"].lower() == "true":
+        if is_spark_connect_mode:
             cls.spark = (
                 SparkSession.builder.config(
                     "spark.jars.packages", spark_connect_jar
