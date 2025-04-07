@@ -1,2 +1,4 @@
 joblib>=0.14
 packaging
+pandas
+

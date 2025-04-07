@@ -22,4 +22,3 @@ set -e
 
 # Run pylint
 python -m pylint joblibspark
-

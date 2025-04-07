@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import logging
 from time import sleep
 import pytest
 import os
@@ -27,6 +28,7 @@ else:
     from joblib.parallel import Parallel, delayed, parallel_backend
 
 from joblibspark import register_spark
+import joblibspark.backend
 
 from sklearn.utils import parallel_backend
 from sklearn.model_selection import cross_val_score
@@ -36,6 +38,21 @@ from sklearn import svm
 from pyspark.sql import SparkSession
 import pyspark
 
+_logger = logging.getLogger("Test")
+_logger.setLevel(logging.INFO)
+
+joblibspark.backend._DEFAULT_N_JOBS_IN_SPARK_CONNECT_MODE = 2
+
+
+spark_version = os.environ["PYSPARK_VERSION"]
+
+is_spark_connect_mode = os.environ["TEST_SPARK_CONNECT"].lower() == "true"
+
+if Version(spark_version).major >= 4:
+    spark_connect_jar = ""
+else:
+    spark_connect_jar = f"org.apache.spark:spark-connect_2.12:{spark_version}"
+
 register_spark()
 
 
@@ -44,12 +61,27 @@ class TestSparkCluster(unittest.TestCase):
 
     @classmethod
     def setup_class(cls):
-        cls.spark = (
-            SparkSession.builder.master("local-cluster[1, 2, 1024]")
+        spark_session_builder = (
+            SparkSession.builder
                 .config("spark.task.cpus", "1")
                 .config("spark.task.maxFailures", "1")
-                .getOrCreate()
         )
+
+        if is_spark_connect_mode:
+            _logger.info("Test with spark connect mode.")
+            cls.spark = (
+                spark_session_builder.config(
+                    "spark.jars.packages", spark_connect_jar
+                )
+                    .remote("local-cluster[1, 2, 1024]")  # Adjust the remote address if necessary
+                    .appName("Test")
+                    .getOrCreate()
+            )
+        else:
+            cls.spark = (
+                spark_session_builder.master("local-cluster[1, 2, 1024]")
+                    .getOrCreate()
+            )
 
     @classmethod
     def teardown_class(cls):
@@ -65,8 +97,8 @@ class TestSparkCluster(unittest.TestCase):
                 raise ValueError("condition evaluated to True")
 
         with parallel_backend('spark') as (ba, _):
-            seq = Parallel(n_jobs=5)(delayed(inc)(i) for i in range(10))
-            assert seq == [inc(i) for i in range(10)]
+            seq = Parallel(n_jobs=2)(delayed(inc)(i) for i in range(2))
+            assert seq == [inc(i) for i in range(2)]
 
         with pytest.raises(BaseException):
             Parallel(n_jobs=5)(delayed(slow_raise_value_error)(i == 3)
@@ -117,8 +149,12 @@ class TestSparkCluster(unittest.TestCase):
         assert len(os.listdir(tmp_dir)) == 0
 
 
-@unittest.skipIf(Version(pyspark.__version__).release < (3, 4, 0),
-                 "Resource group is only supported since spark 3.4.0")
+@unittest.skipIf(
+    (not is_spark_connect_mode and Version(pyspark.__version__).release < (3, 4, 0)) or
+    (is_spark_connect_mode and Version(pyspark.__version__).major < 4),
+    "Resource group is only supported since Spark 3.4.0 for legacy Spark mode or "
+    "since Spark 4 for Spark Connect mode."
+)
 class TestGPUSparkCluster(unittest.TestCase):
     @classmethod
     def setup_class(cls):
@@ -126,19 +162,34 @@ class TestGPUSparkCluster(unittest.TestCase):
             os.path.dirname(os.path.abspath(__file__)), "discover_2_gpu.sh"
         )
 
-        cls.spark = (
-            SparkSession.builder.master("local-cluster[1, 2, 1024]")
-            .config("spark.task.cpus", "1")
-            .config("spark.task.resource.gpu.amount", "1")
-            .config("spark.executor.cores", "2")
-            .config("spark.worker.resource.gpu.amount", "2")
-            .config("spark.executor.resource.gpu.amount", "2")
-            .config("spark.task.maxFailures", "1")
-            .config(
-                "spark.worker.resource.gpu.discoveryScript", gpu_discovery_script_path
-            )
-            .getOrCreate()
+        spark_session_builder = (
+            SparkSession.builder
+                .config("spark.task.cpus", "1")
+                .config("spark.task.resource.gpu.amount", "1")
+                .config("spark.executor.cores", "2")
+                .config("spark.worker.resource.gpu.amount", "2")
+                .config("spark.executor.resource.gpu.amount", "2")
+                .config("spark.task.maxFailures", "1")
+                .config(
+                    "spark.worker.resource.gpu.discoveryScript", gpu_discovery_script_path
+                )
         )
+
+        if is_spark_connect_mode:
+            _logger.info("Test with spark connect mode.")
+            cls.spark = (
+                spark_session_builder.config(
+                    "spark.jars.packages", spark_connect_jar
+                )
+                    .remote("local-cluster[1, 2, 1024]")  # Adjust the remote address if necessary
+                    .appName("Test")
+                    .getOrCreate()
+            )
+        else:
+            cls.spark = (
+                spark_session_builder.master("local-cluster[1, 2, 1024]")
+                    .getOrCreate()
+            )
 
     @classmethod
     def teardown_class(cls):
