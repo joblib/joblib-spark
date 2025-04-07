@@ -111,8 +111,12 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
 
         self._is_spark_connect_mode = is_spark_connect_mode()
         if self._is_spark_connect_mode:
-            self._support_stage_scheduling = Version(pyspark.__version__).major >= 4
-            self._spark_supports_job_cancelling = Version(pyspark.__version__) >= Version("3.5")
+            if Version(pyspark.__version__).major < 4:
+                raise RuntimeError(
+                    "Joblib spark does not support Spark Connect with PySpark version < 4."
+                )
+            self._support_stage_scheduling = True
+            self._spark_supports_job_cancelling = True
         else:
             self._spark_context = self._spark.sparkContext
             self._spark_pinned_threads_enabled = isinstance(
@@ -280,23 +284,17 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                 if self._spark_supports_job_cancelling:
                     self._spark.addTag(self._job_group)
 
-                try:
-                    if self._support_stage_scheduling:
-                        collected = spark_df.mapInPandas(
-                            mapper_fn,
-                            schema="result binary",
-                            profile=self._resource_profile,
-                        ).collect()
-                    else:
-                        collected = spark_df.mapInPandas(
-                            mapper_fn,
-                            schema="result binary",
-                        ).collect()
-
-                except Exception as e:
-                    with open("/tmp/err", "a") as f:
-                        import traceback
-                        f.write(traceback.format_exc())
+                if self._support_stage_scheduling:
+                    collected = spark_df.mapInPandas(
+                        mapper_fn,
+                        schema="result binary",
+                        profile=self._resource_profile,
+                    ).collect()
+                else:
+                    collected = spark_df.mapInPandas(
+                        mapper_fn,
+                        schema="result binary",
+                    ).collect()
 
                 ser_res = bytes(collected[0].result)
             else:
