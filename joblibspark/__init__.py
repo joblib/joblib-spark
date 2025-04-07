@@ -18,7 +18,7 @@
 """
 Joblib spark backend is a extension for joblib, which make joblib running on spark parallelly.
 """
-__version__ = '0.5.3'
+__version__ = '0.6.0'
 
 
 def register_spark():
