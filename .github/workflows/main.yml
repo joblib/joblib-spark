@@ -26,9 +26,9 @@ jobs:
       - name: Install python packages
         run: |
           pip install joblib==${{ matrix.JOBLIB_VERSION }} scikit-learn>=0.23.1 pytest pylint "pyspark[connect]==${{ matrix.PYSPARK_VERSION }}" pandas
-      - name: Run pylint
-        run: |
-          ./run-pylint.sh
       - name: Run test suites
         run: |
           TEST_SPARK_CONNECT=${{ matrix.SPARK_CONNECT_MODE }} PYSPARK_VERSION=${{ matrix.PYSPARK_VERSION }} ./run-tests.sh
+      - name: Run pylint
+        run: |
+          ./run-pylint.sh
