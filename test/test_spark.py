@@ -203,8 +203,12 @@ class TestGPUSparkCluster(unittest.TestCase):
             assert len(taskcontext.resources().get("gpu").addresses) == 1
             return TaskContext.get()
 
-        with parallel_backend('spark') as (ba, _):
-            Parallel(n_jobs=5)(delayed(get_spark_context)(i) for i in range(10))
+        if is_spark_connect_mode:
+            with parallel_backend('spark', num_gpus_per_spark_task=1) as (ba, _):
+                Parallel(n_jobs=5)(delayed(get_spark_context)(i) for i in range(10))
+        else:
+            with parallel_backend('spark') as (ba, _):
+                Parallel(n_jobs=5)(delayed(get_spark_context)(i) for i in range(10))
 
     def test_customized_resource_group(self):
         def get_spark_context(x):
