@@ -280,23 +280,18 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                 if self._spark_supports_job_cancelling:
                     self._spark.addTag(self._job_group)
 
-                try:
-                    if self._support_stage_scheduling:
-                        collected = spark_df.mapInPandas(
-                            mapper_fn,
-                            schema="result binary",
-                            profile=self._resource_profile,
-                        ).collect()
-                    else:
-                        collected = spark_df.mapInPandas(
-                            mapper_fn,
-                            schema="result binary",
-                        ).collect()
-                        pass
-                except Exception as e:
-                    import traceback
-                    with open("/tmp/err.log", "a") as f:
-                        f.write(traceback.format_exc())
+                if self._support_stage_scheduling:
+                    collected = spark_df.mapInPandas(
+                        mapper_fn,
+                        schema="result binary",
+                        profile=self._resource_profile,
+                    ).collect()
+                else:
+                    collected = spark_df.mapInPandas(
+                        mapper_fn,
+                        schema="result binary",
+                    ).collect()
+                    pass
 
                 ser_res = bytes(collected[0].result)
             else:
@@ -372,8 +367,6 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                     return outer
 
                 inheritable_thread_target = patched_inheritable_thread_target(self._spark)
-            else:
-                inheritable_thread_target = inheritable_thread_target(self._spark)
 
             run_on_worker_and_fetch_result = \
                 inheritable_thread_target(run_on_worker_and_fetch_result)

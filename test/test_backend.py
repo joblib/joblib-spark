@@ -17,14 +17,21 @@ spark_version = os.environ["PYSPARK_VERSION"]
 is_spark_connect_mode = os.environ["SPARK_CONNECT_MODE"].lower() == "true"
 
 
+if spark_version == "4.0.0.dev2":
+    spark_connect_jar = "org.apache.spark:spark-connect_2.13:4.0.0-preview2"
+elif Version(spark_version).major < 4:
+    spark_connect_jar = f"org.apache.spark:spark-connect_2.12:{spark_version}"
+else:
+    raise RuntimeError("Unsupported Spark version.")
+
+
 class TestLocalSparkCluster(unittest.TestCase):
     @classmethod
     def setup_class(cls):
         if os.environ["SPARK_CONNECT_MODE"].lower() == "true":
             cls.spark = (
                 SparkSession.builder.config(
-                    "spark.jars.packages",
-                    f"org.apache.spark:spark-connect_2.12:{spark_version}"
+                    "spark.jars.packages", spark_connect_jar
                 )
                     .remote("local-cluster[1, 2, 1024]")
                     .appName("Test")
@@ -32,7 +39,7 @@ class TestLocalSparkCluster(unittest.TestCase):
             )
         else:
             cls.spark = (
-                SparkSession.builder.master("local[*]").getOrCreate()
+                SparkSession.builder.master("local-cluster[1, 2, 1024]").getOrCreate()
             )
 
     @classmethod
@@ -58,11 +65,6 @@ class TestLocalSparkCluster(unittest.TestCase):
                 warnings.simplefilter("always")
                 assert backend.effective_n_jobs(n_jobs=16) == 16
                 assert len(w) == 1
-
-    def test_resource_profile_supported(self):
-        backend = SparkDistributedBackend()
-        # The test fixture uses a local (standalone) Spark instance, which doesn't support stage-level scheduling.
-        assert not backend._support_stage_scheduling
 
 
 class TestBasicSparkCluster(unittest.TestCase):
